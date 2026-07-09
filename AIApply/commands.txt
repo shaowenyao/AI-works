@@ -1,0 +1,67 @@
+AI Application Assistant — Command Reference
+==============================================
+
+SETUP (one-time)
+-----------------
+npm install                          Install dependencies
+npx playwright install chromium      Download the browser used for autofill
+npm run parse-resume                 Parse data/input-resume.pdf into data/profile.json
+                                      (put your resume PDF at data/input-resume.pdf first;
+                                      requires Ollama running locally — see .env.example)
+
+DAY-TO-DAY
+-----------
+npm run dev                          Start the local web app at http://localhost:3000
+                                      (find jobs, click Generate Resume / Open & Auto-fill there)
+
+npm run scan-jobs                    Scan configured companies for new postings
+                                      (same as clicking "Scan for new jobs" in the web app —
+                                      only need this if you want to scan without opening the browser)
+
+WORKING WITH ME (Claude) ON QUEUED WORK
+-----------------------------------------
+npm run list-requested                Show jobs where you clicked "Generate Resume" and are
+                                       waiting for me to write the tailored resume/cover letter.
+                                       Tell me to generate them; I save the .docx files myself.
+
+npm run list-unchecked                Show companies that showed up in a scan but aren't on the
+                                       auto-priority list yet (no verdict recorded). Tell me to
+                                       check them; I'll search each one and record a verdict.
+
+npm run record-verdict -- "Company" true "reason"
+                                       (I run this myself after checking a company — you don't
+                                       need to run it, but the syntax is here for reference.)
+                                       Use `false` instead of `true` if it's not worth tailoring for.
+
+CONFIGURATION
+--------------
+Edit these files directly to change what the app watches for / how it behaves:
+
+src/jobs/sources/config.ts            List of companies to scan (Greenhouse/Lever/Ashby board IDs).
+                                       Set priority: true on any company you personally know is
+                                       worth tailoring for, regardless of size.
+
+src/jobs/priorityCompanies.ts         The static "obviously worth it" list (MAANGA, Fortune 500
+                                       top 50, other majors). Add to this list directly if you want
+                                       a company always auto-flagged without a per-check verdict.
+
+.env                                  Ollama settings (OLLAMA_BASE_URL, OLLAMA_MODEL) and PORT.
+                                       Copy from .env.example if it doesn't exist yet.
+
+MAINTENANCE
+------------
+npm run typecheck                     Verify the TypeScript compiles with no errors
+npm run build                         Compile to dist/ (for npm run start, production-style)
+npm run start                         Run the compiled build instead of the dev server
+
+TYPICAL WORKFLOW
+-----------------
+1. npm run dev                                   → open localhost:3000
+2. Click "Scan for new jobs"                     → pulls in new postings
+3. Click "Generate Resume" on jobs you want       → flags them
+4. Come tell me (Claude) "generate the pending ones"
+5. Refresh the page                              → download links appear
+6. Drop the .docx files into Simplify, apply from there
+
+Periodically:
+- Ask me to check npm run list-unchecked and process any companies waiting on a legitimacy check

@@ -1,0 +1,37 @@
+{
+  "name": "ai-works",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Personal local job-application assistant: finds postings, tailors documents, autofills applications",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "parse-resume": "tsx src/profile/parseResume.ts",
+    "scan-jobs": "tsx src/jobs/scan.ts",
+    "list-requested": "tsx src/documents/listRequested.ts",
+    "list-unchecked": "tsx src/jobs/listUnchecked.ts",
+    "record-verdict": "tsx src/jobs/recordVerdict.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "docx": "^9.1.1",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0",
+    "pdf-parse": "^1.1.1",
+    "playwright": "^1.47.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.5.5",
+    "@types/pdf-parse": "^1.1.5",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.2"
+  },
+  "allowScripts": {
+    "esbuild@0.28.1": true,
+    "fsevents@2.3.2": true,
+    "fsevents@2.3.3": true
+  }
+}

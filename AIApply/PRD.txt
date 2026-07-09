@@ -1,0 +1,97 @@
+AI Application Assistant — Product Requirements
+=================================================
+
+GOAL
+-----
+A personal tool to reduce the manual work of job hunting:
+1. Find job postings worth applying to
+2. Generate a tailored resume + cover letter for each one
+3. Open the real application page and fill in what it can — but always stop
+   before the final Submit, so the user reviews and submits every
+   application themselves
+
+KEY CONSTRAINTS THAT SHAPED THIS
+---------------------------------
+- No paid Anthropic API key. Cost was a deciding factor throughout — this
+  ruled out an automated per-job API-billed tailoring step.
+- Runs entirely on the user's own machine. Not hosted or deployed anywhere.
+- The code is backed up to a GitHub repo for version control, but that repo
+  is PUBLIC — so no personal data (resume content, cover letters, contact
+  info, job history) is ever stored in the repo. All personal data stays
+  local-only, never committed.
+- The user never wants the tool to auto-submit an application on their
+  behalf. The human always does the final click.
+- Job sources are limited to companies using Greenhouse, Lever, or Ashby —
+  platforms with structured, public, ToS-safe job data. LinkedIn and Indeed
+  were explicitly ruled out for this tool (they'd require browser automation
+  just to search/discover jobs, not just to apply, which carries more legal
+  and account-ban risk).
+
+DOCUMENT TAILORING
+--------------------
+- A free local AI model (Ollama) was tried first for writing tailored
+  resume/cover-letter content, but the output quality was noticeably worse
+  than what Claude produces — vaguer phrasing, more "keyword stuffing,"
+  less natural writing.
+- Decision: Claude does the actual tailoring, but on an ask-first basis
+  rather than as an automated, billed API call from inside the app. The
+  user flags which job(s) they want documents for, then separately asks
+  Claude (in a chat) to write them. This isn't instant/automatic, but
+  requests can be batched — flag several jobs, then ask once to clear all
+  of them in one pass.
+- The tailored documents are saved as ready-to-use files (resume +
+  cover letter) that the user can immediately download.
+
+AUTOFILL BEHAVIOR
+-------------------
+- Opens the actual job application page in a visible browser window (not
+  hidden/background) so the user can watch and take over at any point.
+- Fills in: personal contact info, resume upload, and cover letter.
+- Matches form fields by their label/meaning, not by their position on the
+  page — field order varies across different companies' application forms,
+  so position-based filling isn't reliable.
+- Any custom or unusual application question (e.g. "Why do you want to work
+  here?") is left blank for the user to answer themselves — no AI attempts
+  to guess an answer to these.
+- Never clicks Submit under any circumstance. The browser window stays open
+  on the final, filled-out page for manual review and submission.
+
+WHAT HAPPENS AFTER DOCUMENTS ARE READY
+-----------------------------------------
+- The user does not use this tool's own autofill as their primary "submit"
+  path day-to-day. Instead, they download the generated resume and cover
+  letter and upload them into Simplify, a Chrome extension they already use
+  for autofilling and tracking job applications.
+- Simplify then handles the actual application submission from there, with
+  the user reviewing and clicking submit.
+
+DECIDING WHICH JOBS ARE WORTH TAILORING FOR
+-----------------------------------------------
+- Not every job posting is worth the effort of a tailored resume — a small,
+  unknown company may not be, while a company like Meta obviously is.
+- The tool automatically recognizes well-known major companies (a
+  combination of "MAANGA" — Meta, Amazon, Apple, Netflix, Google,
+  Anthropic — plus the current Fortune 500 top 50 by revenue, plus other
+  widely-recognized major employers) and marks those jobs as a priority
+  automatically, with no manual work required.
+- For a company that isn't automatically recognized, Claude can do a quick
+  legitimacy check (looking at things like funding, employee count, and
+  general reputation) when asked. Once checked, the verdict is remembered
+  permanently — that company never needs to be checked again, and every
+  future posting from it is automatically classified correctly going
+  forward.
+- The user can also manually mark a specific company as a priority
+  themselves if they personally know it's worth pursuing, regardless of
+  what the automatic checks say.
+
+SUMMARY OF THE OVERALL WORKFLOW
+-----------------------------------
+1. Scan for new job postings from watched companies
+2. Priority companies are automatically highlighted
+3. For any new/unknown company, Claude can check its legitimacy once and
+   the answer is remembered from then on
+4. User flags which specific jobs they want tailored documents for
+5. Claude writes the tailored resume + cover letter for the flagged jobs
+6. User downloads the finished documents
+7. User uploads those documents into Simplify and applies from there,
+   reviewing and submitting each application themselves

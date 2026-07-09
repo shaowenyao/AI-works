@@ -1,0 +1,140 @@
+AI Application Assistant — Product Requirements
+=================================================
+(Restructured per Carlin Yuen's Product PRD framework:
+Problem → Users & Use Cases → Landscape → Solution → Goals → MVP Requirements → Appendix.
+Grounded against the actual implementation in this repo — package.json, db/schema.sql,
+jobs/, documents/, autofill/, profile/, routes/, server.ts.)
+
+1. PROBLEM / OPPORTUNITY
+------------------------
+Job hunting takes too much manual work: finding good postings, writing a
+tailored resume and cover letter for each one, filling out application
+forms, and figuring out which companies are worth the effort. Companies
+use AI recruiters to screen candidates, stall on responses, and post
+ghost jobs. Now job applicants get the same: a semi-automatic dashboard
+for job discovery, prioritization, and tailoring, with full user control,
+that shows the user what the recruiter already sees, so they can decide
+what's worth applying to before doing the work, not after — and still click
+Apply themselves.
+
+2. TARGET USERS & USE CASES
+----------------------------
+Personal offline job application dashboard for local computer use —
+no accounts needed. The use case is burned-out job applicants who want to
+automate the job application process with semi-automated AI assistance,
+where it seeks out jobs and qualifies them, then produces customized
+resume materials tailored to the job description if flagged as necessary.
+The user can manually apply for the job with the resume tailoring and job
+authenticity steps completed for them. This is more authentic, and the
+company's AI screening system, if it exists, is less likely to flag it
+than an AI auto-applying on the user's behalf.
+
+3. CURRENT JOURNEYS / LANDSCAPE (optional)
+--------------------------------------------
+TODO: find/attach 2-3 screenshots of each competitor (Jobright, Careerflow
+AI, ApplyKit) showing what they do well, for visual reference alongside
+the table below.
+
+Feature comparison vs. closest analogs:
+
+| Feature | Jobright | Careerflow AI | ApplyKit | Your tool |
+|---|---|---|---|---|
+| Job discovery/scanning | Yes — AI copilot finds and scores jobs | No — user finds jobs themselves | No — focused on tailoring | Yes — scans top job sites |
+| Legitimacy check | No | No | No | Yes — check vs static list |
+| Resume tailoring | Yes — AI-tailored per job | AI resume scoring/suggestions only | Yes — local LLM (Ollama) tailors per job description | Yes — Claude-written |
+| Tailoring engine | Proprietary model | Proprietary model | Local model via Ollama | Claude (chat-based, on request) |
+| Autofill | Yes — 1-click autofill extension | No | Yes (per description) | Yes — two-layer (platform recipe + generic label matcher) |
+| Final submit control | Manual | Manual (app doesn't submit anything) | Not confirmed | Always manual — never auto-submits |
+| Pricing | Freemium, 10/day free | Free tier for tracking/scoring | Free/open-source | Free (local) + user's own Claude usage |
+| Data storage/privacy | Cloud-hosted (SaaS) | Cloud-hosted (SaaS) | Fully local | Fully local |
+
+4. PROPOSED SOLUTION / ELEVATOR PITCH
+----------------------------------------
+An offline webapp for frustrated job searchers navigating a frustrating
+employment environment filled with employer-side AI tools and ghost job
+postings. This tool emulates the recruiter's actionable events in
+reverse, giving job postings features like genuine verification, resume
+customization, and user-taken actions.
+
+Top 3 value props:
+1. Never miss or forget a relevant posting from companies you actually
+   care about.
+2. Get a tailored resume + cover letter without paying per-job API costs
+   or accepting lower-quality free-model output.
+3. Cut down the mechanical part of filling out application forms, while
+   the user stays in full control of what's said and what's submitted.
+
+Conceptual model (as built):
+  Watched companies (config.ts) → npm run scan-jobs / "Scan for new jobs"
+    → priority resolved per posting: manual config flag, OR static
+      known-major-employer list (priorityCompanies.ts), OR a cached
+      company_verdicts row from a prior Claude check
+    → jobs land in SQLite-backed list (db/schema.sql), priority badged in
+      the web UI at localhost:3000
+    → user clicks "Generate Resume" on a job → job marked `requested`
+      (no AI call happens here)
+    → user tells Claude "generate the pending ones" → Claude reads
+      `npm run list-requested`, writes resume.docx + cover_letter.docx,
+      saves them via finalizeManualDocuments() into
+      data/applications/<date>_<company>_<title>/, job marked `prepared`
+    → user refreshes the page → download links + "Open & Auto-fill
+      Application" button appear
+    → EITHER: click "Open & Auto-fill" → visible (headless: false)
+      Playwright browser opens the real job URL, clicks Apply if present,
+      runs a platform-specific recipe (greenhouse/lever/ashby) then a
+      generic label-based field matcher as a fallback layer, uploads
+      resume/cover letter, fills contact fields, leaves custom questions
+      blank, and never calls Submit or closes the browser
+    OR: download the .docx files and drop them into Simplify instead
+    → user reviews and clicks Submit themselves, always
+  Separately: `npm run list-unchecked` surfaces companies with no
+  verdict yet; user tells Claude to check them; Claude records a
+  permanent verdict via `npm run record-verdict`.
+
+5. GOALS / MEASURABLE OUTCOMES
+---------------------------------
+- Are we finding the right jobs for the user?
+- Is the resume tailored well for ATS parsing and the job description?
+- Does the user actually find this better than applying manually?
+
+6. MVP / FUNCTIONAL REQUIREMENTS
+------------------------------------
+Organized into 3 phases/milestones by priority, covering the full
+lifecycle from first-time setup through ongoing use to retiring old
+postings — not just the happy path of discovery through autofill.
+P0 = required for MVP adoption, P1 = high-value addition for a
+min-delightful product, P2 = nice-to-have.
+
+PHASE 1 — From Resume to Application
+- [P0] First-time user can convert their resume into a structured
+  profile without retyping their work history.
+- [P0] User can flag postings to receive tailored resumes and cover
+  letters, generated on request and downloadable once ready.
+- [P0] User can open a real job application in a visible browser window.
+- [P1] User can scan watched companies for new job postings on demand.
+- [P1] The tool must fill application fields by matching their meaning,
+  not their position.
+- [P1] The tool must leave custom or open-ended questions blank for the
+  user to answer.
+
+PHASE 2 — Staying Organized Over Time
+- [P0] User can mark a posting as applied to separate it from postings
+  still awaiting action.
+- [P0] User can find postings across five ATS platforms: Greenhouse,
+  Lever, Ashby, SmartRecruiters, and BambooHR.
+- [P1] User can see well-known major employers automatically flagged as
+  priority.
+- [P1] User can check a box to manually mark an unrecognized company as
+  legitimate, remembered permanently.
+- [P1] User can manually mark a specific company as priority.
+- [P1] User can delete a posting they've decided not to pursue.
+- [P1] The tool only shows the first instance of a duplicate posting;
+  the rest are hidden automatically.
+- [P2] User can customize things (watch list, profile) whenever they
+  need to.
+
+PHASE 3 — Reaching More Jobs, Smoother Edges
+- [P2] User can review and edit a company's recorded legitimacy verdict
+  from within the app.
+- [P2] User can monitor and visualize counts of new postings, pending
+  tailoring, and applications sent.
