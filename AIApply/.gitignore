@@ -4,3 +4,6 @@ dist/
 data/
 toapply-docs/
 .DS_Store
+Documents/
+build_resumes.mjs
+build_resumes2.mjs
