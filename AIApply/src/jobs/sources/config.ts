@@ -16,7 +16,7 @@ export interface WatchedCompany {
 
 export const watchedCompanies = {
   greenhouse: [
-    // { name: "Acme Corp", boardId: "acme", priority: true },
+    // { name: "Acme Corp", boardId: "acme" },
   ] as WatchedCompany[],
   lever: [
     // { name: "Acme Corp", boardId: "acme" },

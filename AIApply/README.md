@@ -33,11 +33,11 @@ http://localhost:3000) or has to be done outside the app.
 
 | Step | What it does | Dashboard equivalent |
 |---|---|---|
-| Click **"Generate Resume"** on a job | Flags that job as `requested`. No AI call happens here. | This part *is* on the dashboard. |
-| Tell Claude "generate the pending ones" | Claude reads every job flagged `requested` (via `npm run list-requested`), writes the tailored resume + cover letter, and saves them. This is what actually produces the downloadable documents — it's a chat instruction, not a button. | None — this step only happens through a Claude conversation. |
+| Click **"Generate resume"** on a job | Flags that job as `requested` behind the scenes. No AI call happens here, and the dashboard no longer shows a distinct "requested" badge — the button just disappears once documents exist or the job is marked applied. | This part *is* on the dashboard. |
+| Tell Claude "generate the pending ones" | Claude reads every job flagged `requested` (via `npm run list-requested`), writes the tailored resume + cover letter, and saves them into `toapply-docs/`. This is what actually produces the downloadable documents — it's a chat instruction, not a button. | None — this step only happens through a Claude conversation. |
 | `npm run list-requested` | Lists jobs waiting for Claude to write documents. | None. |
-| `npm run list-unchecked` | Lists companies with no legitimacy verdict yet. | None. |
-| Tell Claude to check unchecked companies | Claude researches each company (funding, headcount, reputation) and records a verdict. | None. |
+| `npm run list-unchecked` | Lists companies with no legitimacy verdict yet. | Largely superseded by the **"Legit company"** checkbox below — checking/unchecking it records a verdict yourself, no Claude research step required. |
+| Tell Claude to check unchecked companies | Claude researches each company (funding, headcount, reputation) and records a verdict. | None — optional if you'd rather do the quick manual check yourself via the checkbox. |
 | `npm run record-verdict -- "Company" true/false "reason"` | Saves a company's legitimacy verdict permanently. Run by Claude after a check — not typically run by the user directly. | None. |
 
 ## Fully in-app (no manual step needed)
@@ -46,8 +46,14 @@ http://localhost:3000) or has to be done outside the app.
 |---|---|
 | Scan for new postings | **"Scan for new jobs"** button |
 | Auto-flagging known major employers | Automatic — no action needed |
-| Open & autofill a prepared application | **"Open & Auto-fill Application"** button (enabled once documents are ready) |
-| Personal data staying local | Automatic/passive — enforced via `.gitignore` |
+| Toggle a company's legitimacy on/off | **"Legit company"** checkbox on any job whose company isn't already priority-flagged — a real two-way toggle, stays visible/checked until the job is marked applied |
+| Hiding duplicate postings (same company + title) | Automatic — only the first one found is shown |
+| Open & autofill a prepared application | **"Open and auto-fill application"** button (enabled once documents are ready) |
+| Mark a posting as applied | **"Mark as applied"** button (shown once a job isn't already applied) |
+| Delete a posting | **"Delete"** button — soft-delete, recoverable |
+| Undo the most recent delete | **"Undo delete"** button (top of the page) — restores the job to its exact prior status; one level of undo only |
+| Add a fake job to test the UI | **"Add dummy job"** button (top of the page) — inserts an unverified test posting without running a real scan; dev/testing use only |
+| Personal data staying local | Automatic/passive — enforced via `.gitignore` (now also covers `toapply-docs/`) |
 
 ## Maintenance / dev only (no UI equivalent)
 

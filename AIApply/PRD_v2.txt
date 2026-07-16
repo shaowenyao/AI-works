@@ -64,33 +64,6 @@ Top 3 value props:
 3. Cut down the mechanical part of filling out application forms, while
    the user stays in full control of what's said and what's submitted.
 
-Conceptual model (as built):
-  Watched companies (config.ts) → npm run scan-jobs / "Scan for new jobs"
-    → priority resolved per posting: manual config flag, OR static
-      known-major-employer list (priorityCompanies.ts), OR a cached
-      company_verdicts row from a prior Claude check
-    → jobs land in SQLite-backed list (db/schema.sql), priority badged in
-      the web UI at localhost:3000
-    → user clicks "Generate Resume" on a job → job marked `requested`
-      (no AI call happens here)
-    → user tells Claude "generate the pending ones" → Claude reads
-      `npm run list-requested`, writes resume.docx + cover_letter.docx,
-      saves them via finalizeManualDocuments() into
-      data/applications/<date>_<company>_<title>/, job marked `prepared`
-    → user refreshes the page → download links + "Open & Auto-fill
-      Application" button appear
-    → EITHER: click "Open & Auto-fill" → visible (headless: false)
-      Playwright browser opens the real job URL, clicks Apply if present,
-      runs a platform-specific recipe (greenhouse/lever/ashby) then a
-      generic label-based field matcher as a fallback layer, uploads
-      resume/cover letter, fills contact fields, leaves custom questions
-      blank, and never calls Submit or closes the browser
-    OR: download the .docx files and drop them into Simplify instead
-    → user reviews and clicks Submit themselves, always
-  Separately: `npm run list-unchecked` surfaces companies with no
-  verdict yet; user tells Claude to check them; Claude records a
-  permanent verdict via `npm run record-verdict`.
-
 5. GOALS / MEASURABLE OUTCOMES
 ---------------------------------
 - Are we finding the right jobs for the user?

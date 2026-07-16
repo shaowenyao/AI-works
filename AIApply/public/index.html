@@ -4,77 +4,153 @@
     <meta charset="utf-8" />
     <title>Job Application Assistant</title>
     <style>
+      * {
+        box-sizing: border-box;
+      }
       body {
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        max-width: 800px;
+        max-width: 880px;
         margin: 2rem auto;
         padding: 0 1rem;
         color: #1a1a1a;
+        background: #f5f6f7;
       }
       h1 {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        font-size: 1.4rem;
+        font-size: 1.5rem;
+      }
+      .header-actions {
+        display: flex;
+        gap: 0.5rem;
       }
       button {
         cursor: pointer;
-        border: 1px solid #ccc;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        border: 1px solid #d8dbdf;
         background: #fff;
-        border-radius: 6px;
-        padding: 0.4rem 0.8rem;
+        border-radius: 8px;
+        padding: 0.45rem 0.9rem;
         font-size: 0.85rem;
+        color: #1a1a1a;
       }
-      button:hover {
+      button:hover:not(:disabled) {
         background: #f2f2f2;
       }
       button:disabled {
-        opacity: 0.5;
+        opacity: 0.55;
         cursor: default;
+        color: #b0b3b8;
+      }
+      .btn-dark {
+        background: #1a1a1a;
+        color: #fff;
+        border-color: #1a1a1a;
+      }
+      .btn-dark:hover:not(:disabled) {
+        background: #333;
+      }
+      .btn-danger {
+        color: #b3261e;
+        border-color: #f3c9c9;
+      }
+      .btn-danger:hover:not(:disabled) {
+        background: #fdf1f0;
+      }
+      #scan-btn {
+        border-radius: 999px;
+        padding: 0.5rem 1.1rem;
       }
       .card {
-        border: 1px solid #e0e0e0;
-        border-radius: 8px;
-        padding: 1rem;
-        margin-bottom: 0.75rem;
+        background: #fff;
+        border: 1px solid #eceef0;
+        border-radius: 12px;
+        padding: 1.1rem 1.25rem;
+        margin-bottom: 1rem;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
       }
       .priority-card {
-        border-color: #e0b400;
-        background: #fffbea;
+        background: #fbead0;
+        border-color: #f3d9ac;
+      }
+      .card-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+      }
+      .card-title {
+        margin: 0;
+        font-size: 1.05rem;
+        font-weight: 700;
+      }
+      .card-title .company {
+        font-weight: 400;
+        color: #6b7280;
+      }
+      .card-badges {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        flex-shrink: 0;
       }
       .priority {
         display: inline-block;
         font-size: 0.75rem;
-        padding: 0.1rem 0.5rem;
+        font-weight: 600;
+        padding: 0.15rem 0.6rem;
         border-radius: 999px;
-        background: #f5d800;
-        color: #443800;
-        margin-left: 0.5rem;
-      }
-      .card h3 {
-        margin: 0 0 0.25rem;
-        font-size: 1.05rem;
-      }
-      .meta {
-        color: #666;
-        font-size: 0.85rem;
-        margin-bottom: 0.5rem;
+        background: #eec272;
+        color: #4d3a12;
       }
       .status {
         display: inline-block;
         font-size: 0.75rem;
-        padding: 0.1rem 0.5rem;
+        font-weight: 600;
+        padding: 0.15rem 0.6rem;
         border-radius: 999px;
-        background: #eee;
-        margin-left: 0.5rem;
+        background: #eceff1;
+        color: #444;
+      }
+      .date-badge {
+        display: inline-block;
+        font-size: 0.75rem;
+        font-weight: 600;
+        padding: 0.15rem 0.6rem;
+        border-radius: 999px;
+        background: #eef2f7;
+        color: #4b5563;
+      }
+      .meta {
+        color: #8a8f98;
+        font-size: 0.85rem;
+        margin: 0.3rem 0 0.75rem;
       }
       .actions {
         display: flex;
+        align-items: center;
         gap: 0.5rem;
-        margin-top: 0.5rem;
+        flex-wrap: wrap;
+      }
+      .actions .links {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-left: auto;
       }
       .actions a {
         font-size: 0.85rem;
+        color: #2563eb;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+      }
+      .actions a:hover {
+        text-decoration: underline;
       }
       .legit-check {
         display: flex;
@@ -82,11 +158,7 @@
         gap: 0.3rem;
         font-size: 0.85rem;
         color: #444;
-      }
-      .hint {
-        font-size: 0.85rem;
-        color: #866;
-        font-style: italic;
+        flex-shrink: 0;
       }
       #empty {
         color: #666;
@@ -96,8 +168,19 @@
   <body>
     <h1>
       Job Application Assistant
-      <span>
-        <button id="scan-btn">Scan for new jobs</button>
+      <span class="header-actions">
+        <button id="dummy-btn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Add dummy job
+        </button>
+        <button id="undo-btn" title="Undo the last delete">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+          Undo delete
+        </button>
+        <button id="scan-btn" class="btn-dark">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          Scan for new jobs
+        </button>
       </span>
     </h1>
     <p id="empty" hidden>

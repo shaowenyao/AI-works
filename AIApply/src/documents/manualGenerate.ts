@@ -20,7 +20,7 @@ export function pendingRequests(): JobRow[] {
 /**
  * Call this after writing the tailored resume/cover letter content — pass in
  * the actual file bytes (e.g. from a docx builder). Saves both files into
- * data/applications/<job-folder>/ and marks the job `prepared`, which is what
+ * toapply-docs/<job-folder>/ and marks the job `prepared`, which is what
  * unlocks the "Open & Auto-fill Application" button and the download links.
  */
 export async function finalizeManualDocuments(

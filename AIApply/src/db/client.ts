@@ -23,6 +23,20 @@ try {
   // column already exists
 }
 
+// Lets a delete be undone: dismissJob() stashes the status a job had right
+// before deletion here, along with when, so undoLastDismiss() can find the
+// most recent one and put it back.
+try {
+  db.exec("ALTER TABLE jobs ADD COLUMN previous_status TEXT");
+} catch {
+  // column already exists
+}
+try {
+  db.exec("ALTER TABLE jobs ADD COLUMN dismissed_at TEXT");
+} catch {
+  // column already exists
+}
+
 export interface JobRow {
   id: number;
   company: string;
@@ -36,6 +50,10 @@ export interface JobRow {
   cover_letter_path: string | null;
   applied_date: string | null;
   priority: number;
+  previous_status: string | null;
+  dismissed_at: string | null;
+  /** 1 if this company has a company_verdicts row (i.e. was checked/set via the "Legit company" checkbox, as opposed to being auto-flagged from the static priority list). */
+  has_verdict: number;
 }
 
 function normalizeForDuplicateCheck(s: string): string {
@@ -96,10 +114,39 @@ export function insertJobIfNew(job: NewJob): boolean {
   return true;
 }
 
+const DUMMY_COMPANIES = ["Northwind Robotics", "Fernbank Health", "Vector Analytics", "Bluepeak Systems"];
+const DUMMY_TITLES = ["Senior Product Designer", "Growth Marketing Lead", "Software Engineer", "Operations Manager"];
+
+/**
+ * Inserts a fake, unverified (priority=0) job for exercising the UI without
+ * a real scan — e.g. testing the "Legit company" checkbox flow.
+ */
+export function insertDummyJob(): JobRow {
+  const company = DUMMY_COMPANIES[Math.floor(Math.random() * DUMMY_COMPANIES.length)];
+  const title = DUMMY_TITLES[Math.floor(Math.random() * DUMMY_TITLES.length)];
+  const url = `https://example.com/dummy-job/${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+
+  insertJobIfNew({
+    company,
+    title,
+    url,
+    source: "greenhouse",
+    description: "Dummy job posting for testing the UI — not a real listing.",
+  });
+
+  return db.prepare("SELECT * FROM jobs WHERE url = ?").get(url) as unknown as JobRow;
+}
+
 /** Priority companies first, then newest first within each group. Excludes dismissed postings. */
 export function listJobs(): JobRow[] {
   return db
-    .prepare("SELECT * FROM jobs WHERE status != 'dismissed' ORDER BY priority DESC, date_found DESC")
+    .prepare(
+      `SELECT j.*, CASE WHEN v.company IS NULL THEN 0 ELSE 1 END AS has_verdict
+       FROM jobs j
+       LEFT JOIN company_verdicts v ON v.company = j.company COLLATE NOCASE
+       WHERE j.status != 'dismissed'
+       ORDER BY (j.url LIKE 'https://example.com/dummy-job/%') DESC, j.priority DESC, j.date_found DESC`,
+    )
     .all() as unknown as JobRow[];
 }
 
@@ -145,7 +192,31 @@ export function markJobApplied(id: number): void {
  * back with a new ID). Soft-dismiss avoids that.
  */
 export function dismissJob(id: number): void {
-  db.prepare("UPDATE jobs SET status = 'dismissed' WHERE id = ?").run(id);
+  const job = getJob(id);
+  if (!job) return;
+  db.prepare(
+    "UPDATE jobs SET status = 'dismissed', previous_status = ?, dismissed_at = ? WHERE id = ?",
+  ).run(job.status, new Date().toISOString(), id);
+}
+
+/**
+ * Restores whichever job was dismissed most recently, putting its status
+ * back to whatever it was right before deletion. Only one level of undo —
+ * good enough for "oops, wrong button" recovery, not a full history.
+ */
+export function undoLastDismiss(): JobRow | undefined {
+  const job = db
+    .prepare(
+      "SELECT * FROM jobs WHERE status = 'dismissed' AND dismissed_at IS NOT NULL ORDER BY dismissed_at DESC LIMIT 1",
+    )
+    .get() as JobRow | undefined;
+  if (!job) return undefined;
+
+  db.prepare(
+    "UPDATE jobs SET status = ?, previous_status = NULL, dismissed_at = NULL WHERE id = ?",
+  ).run(job.previous_status ?? "found", job.id);
+
+  return getJob(job.id);
 }
 
 export interface CompanyVerdict {

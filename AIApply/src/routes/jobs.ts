@@ -4,6 +4,8 @@ import {
   markJobRequested,
   markJobApplied,
   dismissJob,
+  undoLastDismiss,
+  insertDummyJob,
   hideDuplicates,
 } from "../db/client.js";
 import { scanJobs } from "../jobs/scan.js";
@@ -12,6 +14,17 @@ export const jobsRouter = Router();
 
 jobsRouter.get("/", (_req, res) => {
   res.json(hideDuplicates(listJobs()));
+});
+
+// Adds a fake, unverified job for testing the UI (e.g. the "Legit company"
+// checkbox flow) without needing a real scan.
+jobsRouter.post("/dummy", (_req, res) => {
+  try {
+    const job = insertDummyJob();
+    res.json(job);
+  } catch (err) {
+    res.status(500).json({ error: (err as Error).message });
+  }
 });
 
 jobsRouter.post("/scan", async (_req, res) => {
@@ -69,6 +82,17 @@ jobsRouter.post("/:id/dismiss", (req, res) => {
   try {
     dismissJob(id);
     res.json({ status: "dismissed" });
+  } catch (err) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
+// Restores whichever job was most recently deleted, in case that was a
+// misclick — see undoLastDismiss() for how "most recent" is determined.
+jobsRouter.post("/undo-dismiss", (_req, res) => {
+  try {
+    const restored = undoLastDismiss();
+    res.json({ restored: restored ?? null });
   } catch (err) {
     res.status(500).json({ error: (err as Error).message });
   }

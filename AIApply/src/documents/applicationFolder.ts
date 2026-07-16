@@ -11,5 +11,5 @@ export function applicationFolderName(company: string, title: string, date = new
 }
 
 export function applicationFolderPath(company: string, title: string, date = new Date()): string {
-  return path.join("data", "applications", applicationFolderName(company, title, date));
+  return path.join("toapply-docs", applicationFolderName(company, title, date));
 }
