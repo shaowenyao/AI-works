@@ -5,6 +5,7 @@ interface BambooHrJob {
   jobOpeningName: string;
   departmentLabel?: string;
   location?: { city?: string | null; state?: string | null };
+  isRemote?: boolean | null;
 }
 
 interface BambooHrResponse {
@@ -41,6 +42,8 @@ export async function fetchBambooHrJobs(subdomain: string, companyName: string):
       url: `https://${subdomain}.bamboohr.com/careers/${job.id}`,
       source: "bamboohr" as const,
       description: [job.departmentLabel, locationLabel].filter(Boolean).join(" · ") || undefined,
+      location: locationLabel || undefined,
+      sourceRemoteFlag: job.isRemote === true,
     };
   });
 }

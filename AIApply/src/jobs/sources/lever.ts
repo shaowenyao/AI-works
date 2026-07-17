@@ -4,6 +4,8 @@ interface LeverPosting {
   text: string;
   hostedUrl: string;
   descriptionPlain?: string;
+  categories?: { location?: string };
+  workplaceType?: string;
 }
 
 /**
@@ -27,5 +29,7 @@ export async function fetchLeverJobs(company: string, companyName: string): Prom
     url: posting.hostedUrl,
     source: "lever" as const,
     description: posting.descriptionPlain,
+    location: posting.categories?.location,
+    sourceRemoteFlag: posting.workplaceType === "remote",
   }));
 }

@@ -4,6 +4,15 @@ interface SmartRecruitersPosting {
   id: string;
   name: string;
   company: { identifier: string };
+  location?: {
+    city?: string;
+    region?: string;
+    country?: string;
+    remote?: boolean;
+    fullLocation?: string;
+    latitude?: string;
+    longitude?: string;
+  };
 }
 
 interface SmartRecruitersResponse {
@@ -42,10 +51,18 @@ export async function fetchSmartRecruitersJobs(
 
   const data = (await response.json()) as SmartRecruitersResponse;
 
-  return data.content.map((posting) => ({
-    company: companyName,
-    title: posting.name,
-    url: `https://jobs.smartrecruiters.com/${posting.company.identifier}/${posting.id}`,
-    source: "smartrecruiters" as const,
-  }));
+  return data.content.map((posting) => {
+    const lat = Number(posting.location?.latitude);
+    const lng = Number(posting.location?.longitude);
+    return {
+      company: companyName,
+      title: posting.name,
+      url: `https://jobs.smartrecruiters.com/${posting.company.identifier}/${posting.id}`,
+      source: "smartrecruiters" as const,
+      location: posting.location?.fullLocation,
+      sourceRemoteFlag: posting.location?.remote === true,
+      lat: Number.isFinite(lat) ? lat : undefined,
+      lng: Number.isFinite(lng) ? lng : undefined,
+    };
+  });
 }

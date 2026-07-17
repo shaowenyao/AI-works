@@ -7,6 +7,7 @@ import { fetchSmartRecruitersJobs } from "./sources/smartrecruiters.js";
 import { fetchBambooHrJobs } from "./sources/bamboohr.js";
 import { watchedCompanies, type WatchedCompany } from "./sources/config.js";
 import { isKnownPriorityCompany } from "./priorityCompanies.js";
+import { isRemoteConfirmed, isLocalToSf } from "./locationClassifier.js";
 import type { JobPosting } from "./sources/types.js";
 
 /**
@@ -65,7 +66,12 @@ export async function scanJobs(): Promise<{ found: number; new: number }> {
 
   let newCount = 0;
   for (const job of results) {
-    if (insertJobIfNew(job)) newCount++;
+    const inserted = insertJobIfNew({
+      ...job,
+      isRemote: isRemoteConfirmed(job),
+      isLocalSf: isLocalToSf(job),
+    });
+    if (inserted) newCount++;
   }
 
   return { found: results.length, new: newCount };

@@ -3,6 +3,36 @@ const emptyEl = document.getElementById("empty");
 const scanBtn = document.getElementById("scan-btn");
 const undoBtn = document.getElementById("undo-btn");
 const dummyBtn = document.getElementById("dummy-btn");
+const locationFilter = document.getElementById("location-filter");
+const seniorFilter = document.getElementById("senior-filter");
+const tabButtons = document.querySelectorAll(".tab-btn");
+let currentTab = "current";
+
+function isToday(dateString) {
+  const d = new Date(dateString);
+  const now = new Date();
+  return (
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate()
+  );
+}
+
+/** Current = found today, not yet applied. Applied = applied regardless of date. Archived = found before today, not applied. */
+function matchesTab(job) {
+  if (currentTab === "applied") return job.status === "applied";
+  if (job.status === "applied") return false;
+  return currentTab === "current" ? isToday(job.date_found) : !isToday(job.date_found);
+}
+
+/** Computed server-side at scan time — see src/jobs/locationClassifier.ts. */
+function isRemoteJob(job) {
+  return Boolean(job.is_remote);
+}
+
+function isLocalJob(job) {
+  return Boolean(job.is_local_sf);
+}
 
 const icons = {
   check: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`,
@@ -16,23 +46,13 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
-const sourceLabels = {
-  greenhouse: "Greenhouse",
-  lever: "Lever",
-  ashby: "Ashby",
-  smartrecruiters: "SmartRecruiters",
-  bamboohr: "BambooHR",
-};
-
 function jobCard(job) {
   const hasDocs = job.resume_path && job.cover_letter_path;
   const isApplied = job.status === "applied";
-  const statusLabel = job.status === "found" || job.status === "requested"
-    ? sourceLabels[job.source] || job.source
-    : job.status;
+  const statusLabel = job.status === "found" || job.status === "requested" ? job.company : job.status;
 
   const generateControl =
-    hasDocs || isApplied ? "" : `<button class="request-btn btn-dark">Generate resume</button>`;
+    hasDocs || isApplied ? "" : `<button class="request-btn btn-dark">Optimize CV</button>`;
 
   const dateBadge = `<span class="date-badge">${new Date(job.date_found).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}</span>`;
   const priorityBadge = job.priority ? `<span class="priority">Priority</span>` : "";
@@ -51,7 +71,7 @@ function jobCard(job) {
   return `
     <div class="card ${job.priority ? "priority-card" : ""}" data-id="${job.id}" data-company="${escapeHtml(job.company)}">
       <div class="card-header">
-        <h3 class="card-title">${escapeHtml(job.title)} — <span class="company">${escapeHtml(job.company)}</span></h3>
+        <h3 class="card-title"><a href="${escapeHtml(job.url)}" target="_blank" rel="noopener" class="title-link">${escapeHtml(job.title)}</a> — <span class="company">${escapeHtml(job.company)}</span></h3>
         <div class="card-badges">
           ${legitControl}
           ${priorityBadge}
@@ -59,10 +79,10 @@ function jobCard(job) {
           <span class="status">${escapeHtml(statusLabel)}</span>
         </div>
       </div>
-      <div class="meta">${escapeHtml(job.source)}</div>
+      <div class="meta"></div>
       <div class="actions">
         ${generateControl}
-        <button class="apply-btn" ${hasDocs ? "" : "disabled"}>Open and auto-fill application</button>
+        <button class="apply-btn" ${hasDocs ? "" : "disabled"}>Apply with AI fill</button>
         ${markAppliedControl}
         <button class="dismiss-btn btn-danger">${icons.trash} Delete</button>
         <span class="links">
@@ -75,12 +95,56 @@ function jobCard(job) {
   `;
 }
 
-async function loadJobs() {
-  const res = await fetch("/api/jobs");
-  const jobs = await res.json();
+let allJobs = [];
 
+// Narrows the (potentially huge) scanned job list down to design roles only.
+// Broader than a plain "designer" match (catches "Product Design Manager",
+// "Design Lead", etc.) but excludes "engineer"/"recruiter" titles that
+// mention design without being a design role (Design Engineer, mechanical
+// design roles, design recruiters).
+function isDesignTitle(job) {
+  const title = job.title.toLowerCase();
+  return (
+    title.includes("design") &&
+    !title.includes("engineer") &&
+    !title.includes("recruiter") &&
+    !title.includes("manager") &&
+    !title.includes("director") &&
+    !title.includes("content designer") &&
+    !title.includes("industrial designer") &&
+    !title.includes("bim designer")
+  );
+}
+
+function renderJobs() {
+  const jobs = allJobs
+    .filter(matchesTab)
+    .filter((job) => (locationFilter.value === "remote" ? isRemoteJob(job) : isLocalJob(job)))
+    .filter(isDesignTitle)
+    .filter(
+      (job) =>
+        seniorFilter.checked ||
+        (!/\b(staff|principal|senior product)\b/i.test(job.title) && !/^sr\.?\s*product designer/i.test(job.title)),
+    );
+
+  const emptyMessages = {
+    current: `No jobs yet. Ask Claude to add the companies you want to track, then click "Scan for new jobs".`,
+    applied: "Nothing here yet — jobs you mark as applied will show up in this tab.",
+    archived: "Nothing archived yet — jobs land here automatically once they're no longer from today.",
+  };
+  emptyEl.textContent = emptyMessages[currentTab];
   emptyEl.hidden = jobs.length > 0;
   jobsEl.innerHTML = jobs.map(jobCard).join("");
+  wireJobCardEvents();
+}
+
+async function loadJobs() {
+  const res = await fetch("/api/jobs");
+  allJobs = await res.json();
+  renderJobs();
+}
+
+function wireJobCardEvents() {
 
   jobsEl.querySelectorAll(".card").forEach((card) => {
     const id = card.dataset.id;
@@ -96,7 +160,7 @@ async function loadJobs() {
       } catch (err) {
         alert(`Failed to request generation: ${err.message}`);
         e.target.disabled = false;
-        e.target.textContent = "Generate resume";
+        e.target.textContent = "Optimize CV";
       }
     });
 
@@ -126,7 +190,6 @@ async function loadJobs() {
     });
 
     card.querySelector(".dismiss-btn")?.addEventListener("click", async (e) => {
-      if (!confirm("Delete this posting? You can undo this with the \"Undo delete\" button.")) return;
       e.target.disabled = true;
       try {
         await fetch(`/api/jobs/${id}/dismiss`, { method: "POST" });
@@ -203,6 +266,17 @@ scanBtn.addEventListener("click", async () => {
     scanBtn.disabled = false;
     scanBtn.textContent = "Scan for new jobs";
   }
+});
+
+locationFilter.addEventListener("change", renderJobs);
+seniorFilter.addEventListener("change", renderJobs);
+
+tabButtons.forEach((btn) => {
+  btn.addEventListener("click", () => {
+    currentTab = btn.dataset.tab;
+    tabButtons.forEach((b) => b.classList.toggle("active", b === btn));
+    renderJobs();
+  });
 });
 
 loadJobs();

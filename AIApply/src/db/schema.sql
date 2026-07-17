@@ -10,7 +10,10 @@ CREATE TABLE IF NOT EXISTS jobs (
   resume_path TEXT,
   cover_letter_path TEXT,
   applied_date TEXT,
-  priority INTEGER NOT NULL DEFAULT 0
+  priority INTEGER NOT NULL DEFAULT 0,
+  location TEXT,
+  is_remote INTEGER NOT NULL DEFAULT 0,
+  is_local_sf INTEGER NOT NULL DEFAULT 0
 );
 
 -- Cached verdicts for companies not on the static auto-priority list. Checked

@@ -4,6 +4,7 @@ interface GreenhouseJob {
   title: string;
   absolute_url: string;
   content?: string;
+  location?: { name?: string };
 }
 
 interface GreenhouseResponse {
@@ -38,5 +39,6 @@ export async function fetchGreenhouseJobs(boardToken: string, companyName: strin
     url: job.absolute_url,
     source: "greenhouse" as const,
     description: job.content ? stripHtml(job.content) : undefined,
+    location: job.location?.name,
   }));
 }

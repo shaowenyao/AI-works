@@ -5,6 +5,8 @@ interface AshbyJob {
   jobUrl?: string;
   applyUrl?: string;
   descriptionPlain?: string;
+  location?: string;
+  isRemote?: boolean;
 }
 
 interface AshbyResponse {
@@ -34,5 +36,7 @@ export async function fetchAshbyJobs(boardName: string, companyName: string): Pr
       url: (job.jobUrl ?? job.applyUrl)!,
       source: "ashby" as const,
       description: job.descriptionPlain,
+      location: job.location,
+      sourceRemoteFlag: job.isRemote === true,
     }));
 }

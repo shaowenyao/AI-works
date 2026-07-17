@@ -2,6 +2,7 @@ import { DatabaseSync } from "node:sqlite";
 import { mkdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { isRemoteConfirmed, isLocalToSf } from "../jobs/locationClassifier.js";
 
 const DATA_DIR = path.resolve("data");
 mkdirSync(DATA_DIR, { recursive: true });
@@ -37,6 +38,24 @@ try {
   // column already exists
 }
 
+// Location classification (see locationClassifier.ts), computed once at
+// scan time and stored rather than recomputed on every read.
+try {
+  db.exec("ALTER TABLE jobs ADD COLUMN location TEXT");
+} catch {
+  // column already exists
+}
+try {
+  db.exec("ALTER TABLE jobs ADD COLUMN is_remote INTEGER NOT NULL DEFAULT 0");
+} catch {
+  // column already exists
+}
+try {
+  db.exec("ALTER TABLE jobs ADD COLUMN is_local_sf INTEGER NOT NULL DEFAULT 0");
+} catch {
+  // column already exists
+}
+
 export interface JobRow {
   id: number;
   company: string;
@@ -54,6 +73,11 @@ export interface JobRow {
   dismissed_at: string | null;
   /** 1 if this company has a company_verdicts row (i.e. was checked/set via the "Legit company" checkbox, as opposed to being auto-flagged from the static priority list). */
   has_verdict: number;
+  location: string | null;
+  /** Computed via locationClassifier.isRemoteConfirmed() at scan time. */
+  is_remote: number;
+  /** Computed via locationClassifier.isLocalToSf() at scan time. */
+  is_local_sf: number;
 }
 
 function normalizeForDuplicateCheck(s: string): string {
@@ -91,6 +115,9 @@ export interface NewJob {
   source: string;
   description?: string;
   priority?: boolean;
+  location?: string;
+  isRemote?: boolean;
+  isLocalSf?: boolean;
 }
 
 /** Inserts a job if its URL isn't already known. Returns true if a new row was inserted. */
@@ -99,8 +126,8 @@ export function insertJobIfNew(job: NewJob): boolean {
   if (existing) return false;
 
   db.prepare(
-    `INSERT INTO jobs (company, title, url, source, description, date_found, status, priority)
-     VALUES (?, ?, ?, ?, ?, ?, 'found', ?)`,
+    `INSERT INTO jobs (company, title, url, source, description, date_found, status, priority, location, is_remote, is_local_sf)
+     VALUES (?, ?, ?, ?, ?, ?, 'found', ?, ?, ?, ?)`,
   ).run(
     job.company,
     job.title,
@@ -109,6 +136,9 @@ export function insertJobIfNew(job: NewJob): boolean {
     job.description ?? null,
     new Date().toISOString(),
     job.priority ? 1 : 0,
+    job.location ?? null,
+    job.isRemote ? 1 : 0,
+    job.isLocalSf ? 1 : 0,
   );
 
   return true;
@@ -116,14 +146,18 @@ export function insertJobIfNew(job: NewJob): boolean {
 
 const DUMMY_COMPANIES = ["Northwind Robotics", "Fernbank Health", "Vector Analytics", "Bluepeak Systems"];
 const DUMMY_TITLES = ["Senior Product Designer", "Growth Marketing Lead", "Software Engineer", "Operations Manager"];
+const DUMMY_LOCATIONS = ["Remote (US)", "San Francisco, CA", "New York, NY", "Oakland, CA"];
 
 /**
  * Inserts a fake, unverified (priority=0) job for exercising the UI without
- * a real scan — e.g. testing the "Legit company" checkbox flow.
+ * a real scan — e.g. testing the "Legit company" checkbox flow, or the
+ * remote/local filter (location is randomized across remote and non-SF-area
+ * options too, not just SF, so the "Local" filter has something to exclude).
  */
 export function insertDummyJob(): JobRow {
   const company = DUMMY_COMPANIES[Math.floor(Math.random() * DUMMY_COMPANIES.length)];
   const title = DUMMY_TITLES[Math.floor(Math.random() * DUMMY_TITLES.length)];
+  const location = DUMMY_LOCATIONS[Math.floor(Math.random() * DUMMY_LOCATIONS.length)];
   const url = `https://example.com/dummy-job/${Date.now()}-${Math.floor(Math.random() * 10000)}`;
 
   insertJobIfNew({
@@ -132,6 +166,9 @@ export function insertDummyJob(): JobRow {
     url,
     source: "greenhouse",
     description: "Dummy job posting for testing the UI — not a real listing.",
+    location,
+    isRemote: isRemoteConfirmed({ location }),
+    isLocalSf: isLocalToSf({ location }),
   });
 
   return db.prepare("SELECT * FROM jobs WHERE url = ?").get(url) as unknown as JobRow;
