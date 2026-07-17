@@ -7,7 +7,16 @@ const locationFilter = document.getElementById("location-filter");
 const seniorFilter = document.getElementById("senior-filter");
 const tabButtons = document.querySelectorAll(".tab-btn");
 const searchInput = document.getElementById("search-input");
+const filterNoteEl = document.getElementById("filter-note");
 let currentTab = "current";
+
+const ARCHIVE_RETENTION_DAYS = 7;
+
+function daysAgo(days) {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  return d;
+}
 // Each tab keeps its own search text — switching tabs never carries a query
 // over to (or clears one from) another tab.
 const searchQueries = { current: "", applied: "", archived: "" };
@@ -143,6 +152,12 @@ function renderJobs() {
   };
   emptyEl.textContent = emptyMessages[currentTab];
   emptyEl.hidden = jobs.length > 0;
+
+  filterNoteEl.textContent =
+    currentTab === "archived"
+      ? `Last cleared ${daysAgo(ARCHIVE_RETENTION_DAYS).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}`
+      : "Last 24 hours";
+
   jobsEl.innerHTML = jobs.map(jobCard).join("");
   wireJobCardEvents();
 }

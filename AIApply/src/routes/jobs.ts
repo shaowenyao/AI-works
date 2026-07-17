@@ -6,6 +6,7 @@ import {
   dismissJob,
   undoLastDismiss,
   insertDummyJob,
+  pruneOldArchivedJobs,
   hideDuplicates,
 } from "../db/client.js";
 import { scanJobs } from "../jobs/scan.js";
@@ -13,6 +14,7 @@ import { scanJobs } from "../jobs/scan.js";
 export const jobsRouter = Router();
 
 jobsRouter.get("/", (_req, res) => {
+  pruneOldArchivedJobs();
   res.json(hideDuplicates(listJobs()));
 });
 
@@ -31,6 +33,7 @@ jobsRouter.post("/dummy", (req, res) => {
 jobsRouter.post("/scan", async (_req, res) => {
   try {
     const result = await scanJobs();
+    pruneOldArchivedJobs();
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: (err as Error).message });

@@ -274,9 +274,6 @@
       <button class="tab-btn" data-tab="applied">Applied</button>
       <button class="tab-btn" data-tab="archived">Archived</button>
     </div>
-    <p id="empty" hidden>
-      No jobs yet. Ask Claude to add the companies you want to track, then click "Scan for new jobs".
-    </p>
     <div class="filter-row">
       <span class="filter-left">
         <select id="location-filter">
@@ -286,8 +283,11 @@
         <input type="text" id="search-input" placeholder="search" />
         <label class="senior-check disabled" title="Not looking for senior positions right now"><input type="checkbox" id="senior-filter" disabled /> Senior positions</label>
       </span>
-      <span class="filter-note">Last 24 hours</span>
+      <span class="filter-note" id="filter-note">Last 24 hours</span>
     </div>
+    <p id="empty" hidden>
+      No jobs yet. Ask Claude to add the companies you want to track, then click "Scan for new jobs".
+    </p>
     <div id="jobs"></div>
     <script src="app.js"></script>
   </body>

@@ -181,6 +181,23 @@ export function insertDummyJob(locationType: "remote" | "local" = "remote"): Job
   return db.prepare("SELECT * FROM jobs WHERE url = ?").get(url) as unknown as JobRow;
 }
 
+const ARCHIVE_RETENTION_DAYS = 7;
+
+/**
+ * Keeps the Archived tab to a rolling 1-week window: permanently removes
+ * jobs found more than 7 days ago, except applied ones (a permanent record
+ * of what you've applied to) and already-dismissed ones (a separate,
+ * soft-deleted bucket this shouldn't interfere with). Run on every page
+ * load and on every scan, not just once, since "7 days ago" keeps moving.
+ */
+export function pruneOldArchivedJobs(): number {
+  const cutoff = new Date(Date.now() - ARCHIVE_RETENTION_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  const result = db
+    .prepare("DELETE FROM jobs WHERE status NOT IN ('applied', 'dismissed') AND date_found < ?")
+    .run(cutoff);
+  return Number(result.changes);
+}
+
 /** Priority companies first, then newest first within each group. Excludes dismissed postings. */
 export function listJobs(): JobRow[] {
   return db
