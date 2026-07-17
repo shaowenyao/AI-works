@@ -153,10 +153,12 @@ function renderJobs() {
   emptyEl.textContent = emptyMessages[currentTab];
   emptyEl.hidden = jobs.length > 0;
 
-  filterNoteEl.textContent =
-    currentTab === "archived"
-      ? `Last cleared ${daysAgo(ARCHIVE_RETENTION_DAYS).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}`
-      : "Last 24 hours";
+  const filterNotes = {
+    current: "Last 24 hours",
+    applied: "",
+    archived: `Last cleared ${daysAgo(ARCHIVE_RETENTION_DAYS).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}`,
+  };
+  filterNoteEl.textContent = filterNotes[currentTab];
 
   jobsEl.innerHTML = jobs.map(jobCard).join("");
   wireJobCardEvents();
