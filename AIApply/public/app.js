@@ -6,7 +6,11 @@ const dummyBtn = document.getElementById("dummy-btn");
 const locationFilter = document.getElementById("location-filter");
 const seniorFilter = document.getElementById("senior-filter");
 const tabButtons = document.querySelectorAll(".tab-btn");
+const searchInput = document.getElementById("search-input");
 let currentTab = "current";
+// Each tab keeps its own search text — switching tabs never carries a query
+// over to (or clears one from) another tab.
+const searchQueries = { current: "", applied: "", archived: "" };
 
 function isToday(dateString) {
   const d = new Date(dateString);
@@ -117,6 +121,8 @@ function isDesignTitle(job) {
 }
 
 function renderJobs() {
+  const query = searchQueries[currentTab].trim().toLowerCase();
+
   const jobs = allJobs
     .filter(matchesTab)
     .filter((job) => (locationFilter.value === "remote" ? isRemoteJob(job) : isLocalJob(job)))
@@ -125,6 +131,9 @@ function renderJobs() {
       (job) =>
         seniorFilter.checked ||
         (!/\b(staff|principal|senior product)\b/i.test(job.title) && !/^sr\.?\s*product designer/i.test(job.title)),
+    )
+    .filter(
+      (job) => !query || job.title.toLowerCase().includes(query) || job.company.toLowerCase().includes(query),
     );
 
   const emptyMessages = {
@@ -223,7 +232,17 @@ function wireJobCardEvents() {
 dummyBtn.addEventListener("click", async () => {
   dummyBtn.disabled = true;
   try {
-    await fetch("/api/jobs/dummy", { method: "POST" });
+    // Always land in the Current tab, matching whichever of Remote/Local is
+    // active, so the new job is guaranteed to be visible immediately.
+    currentTab = "current";
+    tabButtons.forEach((b) => b.classList.toggle("active", b.dataset.tab === "current"));
+    searchInput.value = searchQueries.current;
+
+    await fetch("/api/jobs/dummy", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ locationType: locationFilter.value }),
+    });
     await loadJobs();
     window.scrollTo({ top: 0, behavior: "smooth" });
   } catch (err) {
@@ -275,8 +294,14 @@ tabButtons.forEach((btn) => {
   btn.addEventListener("click", () => {
     currentTab = btn.dataset.tab;
     tabButtons.forEach((b) => b.classList.toggle("active", b === btn));
+    searchInput.value = searchQueries[currentTab];
     renderJobs();
   });
+});
+
+searchInput.addEventListener("input", () => {
+  searchQueries[currentTab] = searchInput.value;
+  renderJobs();
 });
 
 loadJobs();

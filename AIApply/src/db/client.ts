@@ -145,19 +145,26 @@ export function insertJobIfNew(job: NewJob): boolean {
 }
 
 const DUMMY_COMPANIES = ["Northwind Robotics", "Fernbank Health", "Vector Analytics", "Bluepeak Systems"];
-const DUMMY_TITLES = ["Senior Product Designer", "Growth Marketing Lead", "Software Engineer", "Operations Manager"];
-const DUMMY_LOCATIONS = ["Remote (US)", "San Francisco, CA", "New York, NY", "Oakland, CA"];
+// Plain IC design titles only — the app's job list filters out "manager",
+// "director", "staff", "principal", "senior product", and non-design roles,
+// so anything else here would silently never show up after being added.
+const DUMMY_TITLES = ["Product Designer", "UX Designer", "Visual Designer", "Brand Designer"];
+const DUMMY_REMOTE_LOCATIONS = ["Remote (US)", "Remote"];
+const DUMMY_LOCAL_LOCATIONS = ["San Francisco, CA", "Oakland, CA"];
 
 /**
  * Inserts a fake, unverified (priority=0) job for exercising the UI without
- * a real scan — e.g. testing the "Legit company" checkbox flow, or the
- * remote/local filter (location is randomized across remote and non-SF-area
- * options too, not just SF, so the "Local" filter has something to exclude).
+ * a real scan — e.g. testing the "Legit company" checkbox flow. `locationType`
+ * picks a location that actually matches the requested bucket (remote or
+ * SF-local) so the job is guaranteed to show up under whichever filter is
+ * currently active, instead of landing in a random bucket the user isn't
+ * looking at. Defaults to remote if not specified.
  */
-export function insertDummyJob(): JobRow {
+export function insertDummyJob(locationType: "remote" | "local" = "remote"): JobRow {
   const company = DUMMY_COMPANIES[Math.floor(Math.random() * DUMMY_COMPANIES.length)];
   const title = DUMMY_TITLES[Math.floor(Math.random() * DUMMY_TITLES.length)];
-  const location = DUMMY_LOCATIONS[Math.floor(Math.random() * DUMMY_LOCATIONS.length)];
+  const pool = locationType === "local" ? DUMMY_LOCAL_LOCATIONS : DUMMY_REMOTE_LOCATIONS;
+  const location = pool[Math.floor(Math.random() * pool.length)];
   const url = `https://example.com/dummy-job/${Date.now()}-${Math.floor(Math.random() * 10000)}`;
 
   insertJobIfNew({

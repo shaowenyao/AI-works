@@ -18,9 +18,10 @@ jobsRouter.get("/", (_req, res) => {
 
 // Adds a fake, unverified job for testing the UI (e.g. the "Legit company"
 // checkbox flow) without needing a real scan.
-jobsRouter.post("/dummy", (_req, res) => {
+jobsRouter.post("/dummy", (req, res) => {
   try {
-    const job = insertDummyJob();
+    const locationType = req.body?.locationType === "local" ? "local" : "remote";
+    const job = insertDummyJob(locationType);
     res.json(job);
   } catch (err) {
     res.status(500).json({ error: (err as Error).message });
