@@ -46,7 +46,7 @@ jobsRouter.post("/scan", async (_req, res) => {
 jobsRouter.post("/:id/request-generation", (req, res) => {
   const id = Number(req.params.id);
   try {
-    markJobRequested(id);
+    markJobRequested(id, req.body?.demoMode === true);
     res.json({ status: "requested" });
   } catch (err) {
     res.status(500).json({ error: (err as Error).message });

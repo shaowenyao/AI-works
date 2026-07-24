@@ -131,6 +131,15 @@
         background: #eef2f7;
         color: #4b5563;
       }
+      .apply-order-badge {
+        display: inline-block;
+        font-size: 0.75rem;
+        font-weight: 600;
+        padding: 0.15rem 0.6rem;
+        border-radius: 999px;
+        background: #fef3c7;
+        color: #92400e;
+      }
       .meta {
         margin: 0.4rem 0 0.9rem;
       }
@@ -224,6 +233,21 @@
         color: #b0b3b8;
         cursor: not-allowed;
       }
+      .page-footer {
+        margin-top: 2rem;
+        padding-top: 1rem;
+        border-top: 1px solid #e0e2e5;
+        display: flex;
+        justify-content: flex-end;
+      }
+      .demo-mode-check {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        font-size: 0.85rem;
+        color: #444;
+        cursor: pointer;
+      }
       .tabs {
         display: flex;
         gap: 1.5rem;
@@ -289,6 +313,11 @@
       No jobs yet. Ask Claude to add the companies you want to track, then click "Scan for new jobs".
     </p>
     <div id="jobs"></div>
+    <div class="page-footer">
+      <label class="demo-mode-check" title="Lets 'Apply with AI fill' be used right after 'Optimize CV', without waiting for real documents to be generated — for UX testing/demos">
+        <input type="checkbox" id="demo-mode-toggle" /> Demo mode
+      </label>
+    </div>
     <script src="app.js"></script>
   </body>
 </html>

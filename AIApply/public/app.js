@@ -8,7 +8,22 @@ const seniorFilter = document.getElementById("senior-filter");
 const tabButtons = document.querySelectorAll(".tab-btn");
 const searchInput = document.getElementById("search-input");
 const filterNoteEl = document.getElementById("filter-note");
+const demoModeToggle = document.getElementById("demo-mode-toggle");
 let currentTab = "current";
+
+// Demo mode: everything works exactly like normal mode (real API calls,
+// real apply_order assignment, real navigation) — the one difference is
+// "Apply with AI fill" unlocks right after "Optimize CV" is clicked instead
+// of waiting for someone to actually generate the tailored documents (see
+// applyEnabled in jobCard). Lets the flow be demoed end-to-end without that
+// generation step. Persisted so it survives a reload.
+let demoMode = localStorage.getItem("demoMode") === "true";
+demoModeToggle.checked = demoMode;
+demoModeToggle.addEventListener("change", () => {
+  demoMode = demoModeToggle.checked;
+  localStorage.setItem("demoMode", String(demoMode));
+  renderJobs();
+});
 
 const ARCHIVE_RETENTION_DAYS = 7;
 
@@ -65,7 +80,11 @@ function jobCard(job) {
   const statusLabel = job.status === "found" || job.status === "requested" ? job.company : job.status;
 
   const generateControl =
-    hasDocs || isApplied ? "" : `<button class="request-btn btn-dark">Optimize CV</button>`;
+    hasDocs || isApplied
+      ? ""
+      : job.status === "requested"
+        ? `<button class="request-btn btn-dark" disabled>CV In Claude</button>`
+        : `<button class="request-btn btn-dark">Optimize CV</button>`;
 
   const dateBadge = `<span class="date-badge">${new Date(job.date_found).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}</span>`;
   const priorityBadge = job.priority ? `<span class="priority">Priority</span>` : "";
@@ -81,8 +100,28 @@ function jobCard(job) {
     ? `<label class="legit-check"><input type="checkbox" class="legit-checkbox" ${job.priority ? "checked" : ""} /> Legit company</label>`
     : "";
 
+  // Set once, permanently, the moment "Optimize CV" is clicked (see
+  // markJobRequested in db/client.ts) — shown until the job is marked
+  // applied, so it's clear which one to tackle next without the number
+  // ever shifting as other jobs get applied to or removed.
+  const applyOrderBadge =
+    job.apply_order && !isApplied
+      ? `<span class="apply-order-badge">Apply ${String(job.apply_order).padStart(4, "0")}</span>`
+      : "";
+
+  // Normally "Apply with AI fill" stays disabled until real tailored docs
+  // exist (hasDocs) — those only show up once someone's actually asked
+  // Claude to generate them (see manualGenerate.ts). In demo mode, jobs
+  // whose "Optimize CV" click itself happened in demo mode (job.demo_started,
+  // set once in markJobRequested) skip that wait instead. This is keyed off
+  // the job's own history, not just the current toggle state — a job
+  // started for real before demo mode was ever turned on stays gated on
+  // hasDocs even while demo mode is on, so toggling it never retroactively
+  // unlocks jobs that were already in progress.
+  const applyEnabled = hasDocs || (demoMode && job.demo_started === 1);
+
   return `
-    <div class="card ${job.priority ? "priority-card" : ""}" data-id="${job.id}" data-company="${escapeHtml(job.company)}">
+    <div class="card ${job.priority ? "priority-card" : ""}" data-id="${job.id}" data-company="${escapeHtml(job.company)}" data-url="${escapeHtml(job.url)}">
       <div class="card-header">
         <h3 class="card-title"><a href="${escapeHtml(job.url)}" target="_blank" rel="noopener" class="title-link">${escapeHtml(job.title)}</a> — <span class="company">${escapeHtml(job.company)}</span></h3>
         <div class="card-badges">
@@ -95,10 +134,11 @@ function jobCard(job) {
       <div class="meta"></div>
       <div class="actions">
         ${generateControl}
-        <button class="apply-btn" ${hasDocs ? "" : "disabled"}>Apply with AI fill</button>
+        <button class="apply-btn" ${applyEnabled ? "" : "disabled"}>Apply with AI fill</button>
         ${markAppliedControl}
         <button class="dismiss-btn btn-danger">${icons.trash} Delete</button>
         <span class="links">
+          ${applyOrderBadge}
           <a href="${escapeHtml(job.url)}" target="_blank" rel="noopener">View posting ${icons.external}</a>
           ${hasDocs ? `<a href="/files/${encodeURIComponent(job.resume_path.split("/").slice(-2).join("/"))}" target="_blank">Resume</a>` : ""}
           ${hasDocs ? `<a href="/files/${encodeURIComponent(job.cover_letter_path.split("/").slice(-2).join("/"))}" target="_blank">Cover letter</a>` : ""}
@@ -112,20 +152,28 @@ let allJobs = [];
 
 // Narrows the (potentially huge) scanned job list down to design roles only.
 // Broader than a plain "designer" match (catches "Product Design Manager",
-// "Design Lead", etc.) but excludes "engineer"/"recruiter" titles that
-// mention design without being a design role (Design Engineer, mechanical
-// design roles, design recruiters).
+// "Design Lead", etc.) but excludes "engineer"/"recruiter"/"sourcer" titles
+// that mention design without being a design role (Design Engineer,
+// mechanical design roles, design recruiters, design sourcers), "model
+// designer" (AI model-behavior design, not product/UX design), and a few
+// titles explicitly opted out of: "lead product" (design), "vectorworks
+// designer", "head of design".
 function isDesignTitle(job) {
   const title = job.title.toLowerCase();
   return (
     title.includes("design") &&
     !title.includes("engineer") &&
     !title.includes("recruiter") &&
+    !title.includes("sourcer") &&
+    !title.includes("model designer") &&
     !title.includes("manager") &&
     !title.includes("director") &&
     !title.includes("content designer") &&
     !title.includes("industrial designer") &&
-    !title.includes("bim designer")
+    !title.includes("bim designer") &&
+    !title.includes("lead product") &&
+    !title.includes("vectorworks designer") &&
+    !title.includes("head of design")
   );
 }
 
@@ -144,6 +192,15 @@ function renderJobs() {
     .filter(
       (job) => !query || job.title.toLowerCase().includes(query) || job.company.toLowerCase().includes(query),
     );
+
+  // Unlike Current/Archived (which just reflect date_found), "applied" is an
+  // explicit action with its own timestamp (applied_date, set by
+  // markJobApplied) — so show the most recently applied-to job first,
+  // ignoring the priority-company grouping the other tabs use, so it
+  // actually reflects the order you applied in.
+  if (currentTab === "applied") {
+    jobs.sort((a, b) => (b.applied_date ?? "").localeCompare(a.applied_date ?? ""));
+  }
 
   const emptyMessages = {
     current: `No jobs yet. Ask Claude to add the companies you want to track, then click "Scan for new jobs".`,
@@ -175,14 +232,26 @@ function wireJobCardEvents() {
   jobsEl.querySelectorAll(".card").forEach((card) => {
     const id = card.dataset.id;
     const company = card.dataset.company;
+    const url = card.dataset.url;
 
     const requestBtn = card.querySelector(".request-btn");
     requestBtn?.addEventListener("click", async (e) => {
       e.target.disabled = true;
       e.target.textContent = "Requesting...";
       try {
-        await fetch(`/api/jobs/${id}/request-generation`, { method: "POST" });
+        // demoMode is recorded permanently on the job (see demo_started) so
+        // it's tied to how this job was actually started, not whatever the
+        // toggle happens to be set to later.
+        await fetch(`/api/jobs/${id}/request-generation`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ demoMode }),
+        });
         await loadJobs();
+        // Same backend flag as regular mode (status "requested" + apply_order
+        // assigned) — demo mode only adds this popup on top, standing in for
+        // the real "Claude wrote your resume" moment for UX-testing purposes.
+        if (demoMode) alert("Resume ready");
       } catch (err) {
         alert(`Failed to request generation: ${err.message}`);
         e.target.disabled = false;
@@ -190,15 +259,23 @@ function wireJobCardEvents() {
       }
     });
 
-    card.querySelector(".apply-btn").addEventListener("click", async (e) => {
+    card.querySelector(".apply-btn").addEventListener("click", (e) => {
+      // Same treatment as "CV In Claude" the moment the button is pressed
+      // (while it's enabled) — dark, disabled pill — in both modes, so it's
+      // visually clear the click registered instead of staying pressable.
       e.target.disabled = true;
-      try {
-        await fetch(`/api/jobs/${id}/apply`, { method: "POST" });
-      } catch (err) {
-        alert(`Failed to open application: ${err.message}`);
-      } finally {
-        e.target.disabled = false;
+      e.target.classList.add("btn-dark");
+
+      // "Apply with AI fill" doesn't own any backend flag in regular mode
+      // either — it's purely client-side (opens the listing). Marking a job
+      // applied is a separate, deliberate action via "Mark as applied", so
+      // demo mode must not call that here — it just skips the real
+      // navigation and pops a message instead.
+      if (demoMode) {
+        alert("Job applied");
+        return;
       }
+      window.open(url, "_blank", "noopener");
     });
 
     const appliedBtn = card.querySelector(".applied-btn");

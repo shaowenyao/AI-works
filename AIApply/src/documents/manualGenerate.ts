@@ -31,8 +31,11 @@ export async function finalizeManualDocuments(
 ): Promise<{ resumePath: string; coverLetterPath: string }> {
   const job = getJob(jobId);
   if (!job) throw new Error(`No job found with id ${jobId}`);
+  if (job.apply_order == null) {
+    throw new Error(`Job ${jobId} has no apply_order — it must go through markJobRequested() first`);
+  }
 
-  const folder = applicationFolderPath(job.company, job.title);
+  const folder = applicationFolderPath(job.company, job.title, job.apply_order);
   await mkdir(folder, { recursive: true });
 
   const resumePath = path.join(folder, `resume.${extension}`);

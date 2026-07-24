@@ -56,6 +56,34 @@ try {
   // column already exists
 }
 
+// Timestamp of when "Optimize CV" was clicked (see markJobRequested).
+try {
+  db.exec("ALTER TABLE jobs ADD COLUMN requested_at TEXT");
+} catch {
+  // column already exists
+}
+
+// Permanent "apply Nth" number, assigned once in markJobRequested() and
+// never recomputed — so it can't shift if an earlier job is later applied
+// to, dismissed, or pruned. Drives both the application folder suffix and
+// the "Apply 01" badge in the UI.
+try {
+  db.exec("ALTER TABLE jobs ADD COLUMN apply_order INTEGER");
+} catch {
+  // column already exists
+}
+
+// Whether THIS job's "Optimize CV" click happened while demo mode was on
+// (see markJobRequested). Scoped per-job and set once, so toggling demo
+// mode later never retroactively unlocks "Apply with AI fill" for jobs
+// that were started for real — only jobs actually begun in demo mode get
+// the early-unlock behavior while demo mode is active.
+try {
+  db.exec("ALTER TABLE jobs ADD COLUMN demo_started INTEGER");
+} catch {
+  // column already exists
+}
+
 export interface JobRow {
   id: number;
   company: string;
@@ -78,6 +106,12 @@ export interface JobRow {
   is_remote: number;
   /** Computed via locationClassifier.isLocalToSf() at scan time. */
   is_local_sf: number;
+  /** When "Optimize CV" was clicked for this job — see markJobRequested(). */
+  requested_at: string | null;
+  /** Permanent "apply Nth" number, assigned once — see markJobRequested(). */
+  apply_order: number | null;
+  /** 1 if this job's "Optimize CV" click happened while demo mode was on. */
+  demo_started: number | null;
 }
 
 function normalizeForDuplicateCheck(s: string): string {
@@ -222,9 +256,28 @@ export function getJob(id: number): JobRow | undefined {
   return db.prepare("SELECT * FROM jobs WHERE id = ?").get(id) as JobRow | undefined;
 }
 
-/** Flags a job as waiting for you to ask Claude to generate its tailored documents. */
-export function markJobRequested(id: number): void {
-  db.prepare("UPDATE jobs SET status = 'requested' WHERE id = ?").run(id);
+/**
+ * Flags a job as waiting for you to ask Claude to generate its tailored
+ * documents, and — the first time only — permanently assigns it the next
+ * "apply Nth" number (one past the highest ever assigned). Because this
+ * only reads/writes apply_order and never recomputes from the current set
+ * of rows, a job's number can't shift later just because an earlier job
+ * gets applied to, dismissed, or pruned — it only ever counts up.
+ *
+ * `isDemo` records whether this specific click happened with demo mode on
+ * (see demo_started) — set once, like apply_order, so it reflects how the
+ * job was actually started rather than whatever demo mode is toggled to
+ * later.
+ */
+export function markJobRequested(id: number, isDemo: boolean): void {
+  db.prepare(
+    `UPDATE jobs SET
+       status = 'requested',
+       requested_at = COALESCE(requested_at, ?),
+       apply_order = COALESCE(apply_order, (SELECT COALESCE(MAX(apply_order), 0) FROM jobs) + 1),
+       demo_started = COALESCE(demo_started, ?)
+     WHERE id = ?`,
+  ).run(new Date().toISOString(), isDemo ? 1 : 0, id);
 }
 
 export function setJobDocuments(id: number, resumePath: string, coverLetterPath: string): void {
