@@ -238,7 +238,8 @@
         padding-top: 1rem;
         border-top: 1px solid #e0e2e5;
         display: flex;
-        justify-content: flex-end;
+        align-items: center;
+        justify-content: space-between;
       }
       .demo-mode-check {
         display: flex;
@@ -247,6 +248,30 @@
         font-size: 0.85rem;
         color: #444;
         cursor: pointer;
+      }
+      .pagination {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        font-size: 0.85rem;
+        color: #444;
+      }
+      .pagination button {
+        padding: 0.35rem 0.7rem;
+        font-size: 0.8rem;
+      }
+      .pagination #page-size-select {
+        cursor: pointer;
+        border: 1px solid #d8dbdf;
+        background: #fff;
+        border-radius: 8px;
+        padding: 0.35rem 1.8rem 0.35rem 0.7rem;
+        font-size: 0.8rem;
+        color: #1a1a1a;
+        appearance: none;
+        background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="%23555" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>');
+        background-repeat: no-repeat;
+        background-position: right 0.5rem center;
       }
       .tabs {
         display: flex;
@@ -314,6 +339,15 @@
     </p>
     <div id="jobs"></div>
     <div class="page-footer">
+      <div class="pagination" id="pagination">
+        <button id="prev-page-btn">Prev</button>
+        <span id="page-indicator">Page 1 of 1</span>
+        <button id="next-page-btn">Next</button>
+        <select id="page-size-select">
+          <option value="50" disabled title="Coming soon">50 / page</option>
+          <option value="100" selected>100 / page</option>
+        </select>
+      </div>
       <label class="demo-mode-check" title="Lets 'Apply with AI fill' be used right after 'Optimize CV', without waiting for real documents to be generated — for UX testing/demos">
         <input type="checkbox" id="demo-mode-toggle" /> Demo mode
       </label>

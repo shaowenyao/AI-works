@@ -9,7 +9,14 @@ const tabButtons = document.querySelectorAll(".tab-btn");
 const searchInput = document.getElementById("search-input");
 const filterNoteEl = document.getElementById("filter-note");
 const demoModeToggle = document.getElementById("demo-mode-toggle");
+const prevPageBtn = document.getElementById("prev-page-btn");
+const nextPageBtn = document.getElementById("next-page-btn");
+const pageIndicatorEl = document.getElementById("page-indicator");
+const pageSizeSelect = document.getElementById("page-size-select");
+const paginationEl = document.getElementById("pagination");
 let currentTab = "current";
+let currentPage = 1;
+let pageSize = Number(pageSizeSelect.value);
 
 // Demo mode: everything works exactly like normal mode (real API calls,
 // real apply_order assignment, real navigation) — the one difference is
@@ -217,7 +224,20 @@ function renderJobs() {
   };
   filterNoteEl.textContent = filterNotes[currentTab];
 
-  jobsEl.innerHTML = jobs.map(jobCard).join("");
+  // Slice for the current page after all filtering/sorting above, so page
+  // numbers stay relative to what's actually being looked at. Clamp instead
+  // of resetting to 1 whenever possible, so e.g. deleting the last job on
+  // page 3 drops you to the new last page rather than back to page 1.
+  const totalPages = Math.max(1, Math.ceil(jobs.length / pageSize));
+  currentPage = Math.min(currentPage, totalPages);
+  const pageJobs = jobs.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+  paginationEl.hidden = jobs.length === 0;
+  pageIndicatorEl.textContent = `Page ${currentPage} of ${totalPages}`;
+  prevPageBtn.disabled = currentPage <= 1;
+  nextPageBtn.disabled = currentPage >= totalPages;
+
+  jobsEl.innerHTML = pageJobs.map(jobCard).join("");
   wireJobCardEvents();
 }
 
@@ -331,6 +351,7 @@ dummyBtn.addEventListener("click", async () => {
     currentTab = "current";
     tabButtons.forEach((b) => b.classList.toggle("active", b.dataset.tab === "current"));
     searchInput.value = searchQueries.current;
+    currentPage = 1;
 
     await fetch("/api/jobs/dummy", {
       method: "POST",
@@ -381,20 +402,44 @@ scanBtn.addEventListener("click", async () => {
   }
 });
 
-locationFilter.addEventListener("change", renderJobs);
-seniorFilter.addEventListener("change", renderJobs);
+locationFilter.addEventListener("change", () => {
+  currentPage = 1;
+  renderJobs();
+});
+seniorFilter.addEventListener("change", () => {
+  currentPage = 1;
+  renderJobs();
+});
 
 tabButtons.forEach((btn) => {
   btn.addEventListener("click", () => {
     currentTab = btn.dataset.tab;
     tabButtons.forEach((b) => b.classList.toggle("active", b === btn));
     searchInput.value = searchQueries[currentTab];
+    currentPage = 1;
     renderJobs();
   });
 });
 
 searchInput.addEventListener("input", () => {
   searchQueries[currentTab] = searchInput.value;
+  currentPage = 1;
+  renderJobs();
+});
+
+prevPageBtn.addEventListener("click", () => {
+  currentPage = Math.max(1, currentPage - 1);
+  renderJobs();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+});
+nextPageBtn.addEventListener("click", () => {
+  currentPage += 1;
+  renderJobs();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+});
+pageSizeSelect.addEventListener("change", () => {
+  pageSize = Number(pageSizeSelect.value);
+  currentPage = 1;
   renderJobs();
 });
 
