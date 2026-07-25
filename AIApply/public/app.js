@@ -1,3 +1,5 @@
+import { isDesignTitle } from "./shared/jobFilters.js";
+
 const jobsEl = document.getElementById("jobs");
 const emptyEl = document.getElementById("empty");
 const scanBtn = document.getElementById("scan-btn");
@@ -156,33 +158,6 @@ function jobCard(job) {
 }
 
 let allJobs = [];
-
-// Narrows the (potentially huge) scanned job list down to design roles only.
-// Broader than a plain "designer" match (catches "Product Design Manager",
-// "Design Lead", etc.) but excludes "engineer"/"recruiter"/"sourcer" titles
-// that mention design without being a design role (Design Engineer,
-// mechanical design roles, design recruiters, design sourcers), "model
-// designer" (AI model-behavior design, not product/UX design), and a few
-// titles explicitly opted out of: "lead product" (design), "vectorworks
-// designer", "head of design".
-function isDesignTitle(job) {
-  const title = job.title.toLowerCase();
-  return (
-    title.includes("design") &&
-    !title.includes("engineer") &&
-    !title.includes("recruiter") &&
-    !title.includes("sourcer") &&
-    !title.includes("model designer") &&
-    !title.includes("manager") &&
-    !title.includes("director") &&
-    !title.includes("content designer") &&
-    !title.includes("industrial designer") &&
-    !title.includes("bim designer") &&
-    !title.includes("lead product") &&
-    !title.includes("vectorworks designer") &&
-    !title.includes("head of design")
-  );
-}
 
 function renderJobs() {
   const query = searchQueries[currentTab].trim().toLowerCase();

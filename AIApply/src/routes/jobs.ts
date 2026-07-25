@@ -10,12 +10,17 @@ import {
   hideDuplicates,
 } from "../db/client.js";
 import { scanJobs } from "../jobs/scan.js";
+import { isDesignTitle } from "../../public/shared/jobFilters.js";
 
 export const jobsRouter = Router();
 
+// Only design-role postings are ever shown in the UI (see isDesignTitle),
+// so filtering here — not just client-side — keeps the response small: the
+// scanner pulls every posting from each tracked company, and most aren't
+// design roles at all.
 jobsRouter.get("/", (_req, res) => {
   pruneOldArchivedJobs();
-  res.json(hideDuplicates(listJobs()));
+  res.json(hideDuplicates(listJobs()).filter(isDesignTitle));
 });
 
 // Adds a fake, unverified job for testing the UI (e.g. the "Legit company"
