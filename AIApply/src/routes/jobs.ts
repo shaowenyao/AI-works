@@ -5,9 +5,13 @@ import {
   markJobApplied,
   dismissJob,
   undoLastDismiss,
+  unhideJob,
   insertDummyJob,
   pruneOldArchivedJobs,
   hideDuplicates,
+  setPipelineStage,
+  PIPELINE_STAGES,
+  setFavorite,
 } from "../db/client.js";
 import { scanJobs } from "../jobs/scan.js";
 import { isDesignTitle } from "../../public/shared/jobFilters.js";
@@ -51,7 +55,7 @@ jobsRouter.post("/scan", async (_req, res) => {
 jobsRouter.post("/:id/request-generation", (req, res) => {
   const id = Number(req.params.id);
   try {
-    markJobRequested(id, req.body?.demoMode === true);
+    markJobRequested(id);
     res.json({ status: "requested" });
   } catch (err) {
     res.status(500).json({ error: (err as Error).message });
@@ -85,7 +89,7 @@ jobsRouter.post("/:id/mark-applied", (req, res) => {
 
 // Marks a posting as dismissed (decided not to pursue). Kept in the
 // database (not deleted) so it won't reappear if the same URL is scanned
-// again, but hidden from the default job list.
+// again — moves it into the "Hidden Jobs" tab instead of the tab it was in.
 jobsRouter.post("/:id/dismiss", (req, res) => {
   const id = Number(req.params.id);
   try {
@@ -102,6 +106,48 @@ jobsRouter.post("/undo-dismiss", (_req, res) => {
   try {
     const restored = undoLastDismiss();
     res.json({ restored: restored ?? null });
+  } catch (err) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
+// The per-card "Unhide" button — restores one specific job, as opposed to
+// undo-dismiss above which always targets whichever was hidden most recently.
+jobsRouter.post("/:id/unhide", (req, res) => {
+  const id = Number(req.params.id);
+  try {
+    const restored = unhideJob(id);
+    res.json({ restored: restored ?? null });
+  } catch (err) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
+// The status dropdown on Applied Jobs cards — tracks where the application
+// actually stands in the hiring pipeline, separate from this app's own
+// found/requested/applied lifecycle.
+jobsRouter.post("/:id/pipeline-stage", (req, res) => {
+  const id = Number(req.params.id);
+  const stage = req.body?.stage;
+  if (!PIPELINE_STAGES.includes(stage)) {
+    res.status(400).json({ error: `Invalid stage. Must be one of: ${PIPELINE_STAGES.join(", ")}` });
+    return;
+  }
+  try {
+    setPipelineStage(id, stage);
+    res.json({ pipeline_stage: stage });
+  } catch (err) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
+// The star toggle on job cards.
+jobsRouter.post("/:id/favorite", (req, res) => {
+  const id = Number(req.params.id);
+  const favorited = req.body?.favorited === true;
+  try {
+    setFavorite(id, favorited);
+    res.json({ favorited });
   } catch (err) {
     res.status(500).json({ error: (err as Error).message });
   }

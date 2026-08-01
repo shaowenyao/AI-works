@@ -73,13 +73,22 @@ try {
   // column already exists
 }
 
-// Whether THIS job's "Optimize CV" click happened while demo mode was on
-// (see markJobRequested). Scoped per-job and set once, so toggling demo
-// mode later never retroactively unlocks "Apply with AI fill" for jobs
-// that were started for real — only jobs actually begun in demo mode get
-// the early-unlock behavior while demo mode is active.
+// Where an applied job stands in the actual hiring pipeline (as opposed to
+// `status`, which just tracks this app's own found/requested/applied
+// lifecycle) — set via the status dropdown on Applied Jobs cards.
 try {
-  db.exec("ALTER TABLE jobs ADD COLUMN demo_started INTEGER");
+  db.exec("ALTER TABLE jobs ADD COLUMN pipeline_stage TEXT");
+} catch {
+  // column already exists
+}
+
+export const PIPELINE_STAGES = ["applied", "recruiter", "interview", "offer", "ghosted"] as const;
+export type PipelineStage = (typeof PIPELINE_STAGES)[number];
+
+// The star toggle on job cards. Independent of status/hiding — survives a
+// job being hidden and unhidden, since it's just a separate flag.
+try {
+  db.exec("ALTER TABLE jobs ADD COLUMN favorited INTEGER NOT NULL DEFAULT 0");
 } catch {
   // column already exists
 }
@@ -110,8 +119,10 @@ export interface JobRow {
   requested_at: string | null;
   /** Permanent "apply Nth" number, assigned once — see markJobRequested(). */
   apply_order: number | null;
-  /** 1 if this job's "Optimize CV" click happened while demo mode was on. */
-  demo_started: number | null;
+  /** Hiring-pipeline stage for an applied job — see setPipelineStage(). */
+  pipeline_stage: string | null;
+  /** 1 if starred — see setFavorite(). Independent of status/hiding. */
+  favorited: number;
 }
 
 function normalizeForDuplicateCheck(s: string): string {
@@ -125,17 +136,29 @@ function normalizeForDuplicateCheck(s: string): string {
  * Only the first instance found (earliest date_found) is kept in the
  * result; the rest are dropped entirely. Computed at read time, not stored,
  * since "duplicate" is a relationship between rows, not a fact about one.
+ *
+ * listJobs() now includes dismissed (hidden) jobs (for the Hidden Jobs tab),
+ * so a non-dismissed job always wins the slot for its (company, title) key
+ * over a dismissed one, regardless of which was found first — otherwise
+ * hiding one office's posting could accidentally shadow a still-live
+ * duplicate at another office out of every other tab. Only falls back to a
+ * dismissed job when every duplicate for that key is dismissed.
  */
 export function hideDuplicates(jobs: JobRow[]): JobRow[] {
   const seen = new Set<string>();
-  const byFirstFound = [...jobs].sort((a, b) => a.date_found.localeCompare(b.date_found));
   const keep = new Set<number>();
 
-  for (const job of byFirstFound) {
-    const key = `${normalizeForDuplicateCheck(job.company)}::${normalizeForDuplicateCheck(job.title)}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    keep.add(job.id);
+  const active = jobs.filter((j) => j.status !== "dismissed");
+  const dismissed = jobs.filter((j) => j.status === "dismissed");
+
+  for (const group of [active, dismissed]) {
+    const byFirstFound = [...group].sort((a, b) => a.date_found.localeCompare(b.date_found));
+    for (const job of byFirstFound) {
+      const key = `${normalizeForDuplicateCheck(job.company)}::${normalizeForDuplicateCheck(job.title)}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      keep.add(job.id);
+    }
   }
 
   // Preserve the caller's original ordering (priority-first, newest-first).
@@ -178,11 +201,133 @@ export function insertJobIfNew(job: NewJob): boolean {
   return true;
 }
 
-const DUMMY_COMPANIES = ["Northwind Robotics", "Fernbank Health", "Vector Analytics", "Bluepeak Systems"];
+// Made-up names only, entirely separate from the real watch list in
+// jobs/sources/config.ts — this pool never touches live scanning or the
+// design-title filter (shared/jobFilters.js), it only feeds insertDummyJob()
+// below. hideDuplicates() collapses jobs sharing the same (company, title),
+// keeping only the earliest — correct for real postings (same role listed
+// under multiple offices), but it means a small pool here risks a repeat
+// click landing on a combo an earlier dummy job already used and silently
+// vanishing behind it. Kept large enough (100 x 10 = 1000 combos) that a
+// collision is unlikely even across a long testing session, without
+// needing to tag titles with anything that gives away it's a dummy entry.
+const DUMMY_COMPANIES = [
+  "Northwind Robotics",
+  "Fernbank Health",
+  "Vector Analytics",
+  "Bluepeak Systems",
+  "Cascade Dynamics",
+  "Harbor Labs",
+  "Ridgeline Health",
+  "Solstice Systems",
+  "Meridian Analytics",
+  "Brightwell Technologies",
+  "Ironclad Systems",
+  "Pinecrest Labs",
+  "Amberlight Robotics",
+  "Silverbrook Health",
+  "Crestline Analytics",
+  "Woodhaven Systems",
+  "Cobalt Dynamics",
+  "Fairwind Labs",
+  "Granite Peak Health",
+  "Lucid Networks",
+  "Timberline Systems",
+  "Nova Ridge Robotics",
+  "Clearwater Analytics",
+  "Highbridge Technologies",
+  "Sable Point Labs",
+  "Windrose Health",
+  "Basalt Dynamics",
+  "Everline Systems",
+  "Copperfield Robotics",
+  "Aldergate Health",
+  "Northstar Analytics",
+  "Millbrook Labs",
+  "Greywolf Systems",
+  "Sunhaven Technologies",
+  "Rockford Dynamics",
+  "Emberline Health",
+  "Kestrel Robotics",
+  "Palisade Analytics",
+  "Thornfield Labs",
+  "Brightridge Systems",
+  "Cinderpine Health",
+  "Vantage Point Technologies",
+  "Hollowbrook Dynamics",
+  "Larkspur Robotics",
+  "Wrenfield Analytics",
+  "Stonebridge Labs",
+  "Foxglove Health",
+  "Marrow Systems",
+  "Ashgrove Technologies",
+  "Deepwell Dynamics",
+  "Silverline Robotics",
+  "Brackenridge Analytics",
+  "Windmere Labs",
+  "Copperline Health",
+  "Ravenwood Systems",
+  "Hearthstone Technologies",
+  "Blackfern Dynamics",
+  "Wolfridge Robotics",
+  "Amberfield Analytics",
+  "Southgate Labs",
+  "Ironwood Health",
+  "Highmoor Systems",
+  "Cloudpeak Technologies",
+  "Redstone Dynamics",
+  "Willowmere Robotics",
+  "Thistledown Analytics",
+  "Graystone Labs",
+  "Fallowfield Health",
+  "Bramblewood Systems",
+  "Duskridge Technologies",
+  "Elmsworth Dynamics",
+  "Farrowgate Robotics",
+  "Hazelbrook Analytics",
+  "Ironvale Labs",
+  "Juniper Ridge Health",
+  "Kettlewell Systems",
+  "Longshadow Technologies",
+  "Moorland Dynamics",
+  "Nightingale Robotics",
+  "Oakhollow Analytics",
+  "Pemberton Labs",
+  "Quarryfield Health",
+  "Rimwood Systems",
+  "Silverpine Technologies",
+  "Thornwell Dynamics",
+  "Underhill Robotics",
+  "Vesperfield Analytics",
+  "Westbrooke Labs",
+  "Yewgrove Health",
+  "Zephyrline Systems",
+  "Ashcombe Technologies",
+  "Briarcliff Dynamics",
+  "Coldwater Robotics",
+  "Driftwood Analytics",
+  "Eastmere Labs",
+  "Frostwick Health",
+  "Gladewell Systems",
+  "Hartmoor Technologies",
+  "Ironbridge Dynamics",
+  "Juniper Falls Robotics",
+];
 // Plain IC design titles only — the app's job list filters out "manager",
 // "director", "staff", "principal", "senior product", and non-design roles,
 // so anything else here would silently never show up after being added.
-const DUMMY_TITLES = ["Product Designer", "UX Designer", "Visual Designer", "Brand Designer"];
+const DUMMY_TITLES = [
+  "Product Designer",
+  "UX Designer",
+  "Visual Designer",
+  "Brand Designer",
+  "UI Designer",
+  "Junior Product Designer",
+  "Growth Designer",
+  "Web Designer",
+  "Interaction Designer",
+  "Motion Designer",
+];
 const DUMMY_REMOTE_LOCATIONS = ["Remote (US)", "Remote"];
 const DUMMY_LOCAL_LOCATIONS = ["San Francisco, CA", "Oakland, CA"];
 
@@ -232,14 +377,17 @@ export function pruneOldArchivedJobs(): number {
   return Number(result.changes);
 }
 
-/** Priority companies first, then newest first within each group. Excludes dismissed postings. */
+/**
+ * Priority companies first, then newest first within each group. Includes
+ * dismissed (hidden) postings — the webapp's "Hidden Jobs" tab filters for
+ * those client-side, same as it does for Applied/Archived.
+ */
 export function listJobs(): JobRow[] {
   return db
     .prepare(
       `SELECT j.*, CASE WHEN v.company IS NULL THEN 0 ELSE 1 END AS has_verdict
        FROM jobs j
        LEFT JOIN company_verdicts v ON v.company = j.company COLLATE NOCASE
-       WHERE j.status != 'dismissed'
        ORDER BY (j.url LIKE 'https://example.com/dummy-job/%') DESC, j.priority DESC, j.date_found DESC`,
     )
     .all() as unknown as JobRow[];
@@ -263,21 +411,15 @@ export function getJob(id: number): JobRow | undefined {
  * only reads/writes apply_order and never recomputes from the current set
  * of rows, a job's number can't shift later just because an earlier job
  * gets applied to, dismissed, or pruned — it only ever counts up.
- *
- * `isDemo` records whether this specific click happened with demo mode on
- * (see demo_started) — set once, like apply_order, so it reflects how the
- * job was actually started rather than whatever demo mode is toggled to
- * later.
  */
-export function markJobRequested(id: number, isDemo: boolean): void {
+export function markJobRequested(id: number): void {
   db.prepare(
     `UPDATE jobs SET
        status = 'requested',
        requested_at = COALESCE(requested_at, ?),
-       apply_order = COALESCE(apply_order, (SELECT COALESCE(MAX(apply_order), 0) FROM jobs) + 1),
-       demo_started = COALESCE(demo_started, ?)
+       apply_order = COALESCE(apply_order, (SELECT COALESCE(MAX(apply_order), 0) FROM jobs) + 1)
      WHERE id = ?`,
-  ).run(new Date().toISOString(), isDemo ? 1 : 0, id);
+  ).run(new Date().toISOString(), id);
 }
 
 export function setJobDocuments(id: number, resumePath: string, coverLetterPath: string): void {
@@ -287,10 +429,19 @@ export function setJobDocuments(id: number, resumePath: string, coverLetterPath:
 }
 
 export function markJobApplied(id: number): void {
-  db.prepare("UPDATE jobs SET status = 'applied', applied_date = ? WHERE id = ?").run(
-    new Date().toISOString(),
-    id,
-  );
+  db.prepare(
+    "UPDATE jobs SET status = 'applied', applied_date = ?, pipeline_stage = COALESCE(pipeline_stage, 'applied') WHERE id = ?",
+  ).run(new Date().toISOString(), id);
+}
+
+/** Updates where an applied job stands in the hiring pipeline — see the status dropdown on Applied Jobs cards. */
+export function setPipelineStage(id: number, stage: PipelineStage): void {
+  db.prepare("UPDATE jobs SET pipeline_stage = ? WHERE id = ?").run(stage, id);
+}
+
+/** Toggles the star on a card. */
+export function setFavorite(id: number, favorited: boolean): void {
+  db.prepare("UPDATE jobs SET favorited = ? WHERE id = ?").run(favorited ? 1 : 0, id);
 }
 
 /**
@@ -331,6 +482,23 @@ export function undoLastDismiss(): JobRow | undefined {
   ).run(job.previous_status ?? "found", job.id);
 
   return getJob(job.id);
+}
+
+/**
+ * Restores one specific hidden job (the per-card "Unhide" button), as
+ * opposed to undoLastDismiss() which always restores whichever was hidden
+ * most recently. Same restore logic — status goes back to whatever it was
+ * right before it got hidden.
+ */
+export function unhideJob(id: number): JobRow | undefined {
+  const job = getJob(id);
+  if (!job || job.status !== "dismissed") return undefined;
+
+  db.prepare(
+    "UPDATE jobs SET status = ?, previous_status = NULL, dismissed_at = NULL WHERE id = ?",
+  ).run(job.previous_status ?? "found", id);
+
+  return getJob(id);
 }
 
 export interface CompanyVerdict {
