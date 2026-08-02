@@ -93,6 +93,17 @@ try {
   // column already exists
 }
 
+// Set on jobs added via the "Add job" URL-import flow (see importByUrl.ts).
+// The user explicitly chose to add that exact posting, so it's exempt from
+// the isDesignTitle filter below (and the client's own isSeniorTitle/
+// location/search filters) — unlike scanned jobs, which are pulled in bulk
+// from a whole company board and need filtering down to design roles.
+try {
+  db.exec("ALTER TABLE jobs ADD COLUMN manually_imported INTEGER NOT NULL DEFAULT 0");
+} catch {
+  // column already exists
+}
+
 export interface JobRow {
   id: number;
   company: string;
@@ -123,6 +134,8 @@ export interface JobRow {
   pipeline_stage: string | null;
   /** 1 if starred — see setFavorite(). Independent of status/hiding. */
   favorited: number;
+  /** 1 if added via the "Add job" URL-import flow — see insertJobIfNew(). */
+  manually_imported: number;
 }
 
 function normalizeForDuplicateCheck(s: string): string {
@@ -175,6 +188,7 @@ export interface NewJob {
   location?: string;
   isRemote?: boolean;
   isLocalSf?: boolean;
+  manuallyImported?: boolean;
 }
 
 /** Inserts a job if its URL isn't already known. Returns true if a new row was inserted. */
@@ -183,8 +197,8 @@ export function insertJobIfNew(job: NewJob): boolean {
   if (existing) return false;
 
   db.prepare(
-    `INSERT INTO jobs (company, title, url, source, description, date_found, status, priority, location, is_remote, is_local_sf)
-     VALUES (?, ?, ?, ?, ?, ?, 'found', ?, ?, ?, ?)`,
+    `INSERT INTO jobs (company, title, url, source, description, date_found, status, priority, location, is_remote, is_local_sf, manually_imported)
+     VALUES (?, ?, ?, ?, ?, ?, 'found', ?, ?, ?, ?, ?)`,
   ).run(
     job.company,
     job.title,
@@ -196,6 +210,7 @@ export function insertJobIfNew(job: NewJob): boolean {
     job.location ?? null,
     job.isRemote ? 1 : 0,
     job.isLocalSf ? 1 : 0,
+    job.manuallyImported ? 1 : 0,
   );
 
   return true;
@@ -372,7 +387,7 @@ const ARCHIVE_RETENTION_DAYS = 7;
 export function pruneOldArchivedJobs(): number {
   const cutoff = new Date(Date.now() - ARCHIVE_RETENTION_DAYS * 24 * 60 * 60 * 1000).toISOString();
   const result = db
-    .prepare("DELETE FROM jobs WHERE status NOT IN ('applied', 'dismissed') AND date_found < ?")
+    .prepare("DELETE FROM jobs WHERE status NOT IN ('applied', 'dismissed', 'excluded') AND date_found < ?")
     .run(cutoff);
   return Number(result.changes);
 }
@@ -499,6 +514,19 @@ export function unhideJob(id: number): JobRow | undefined {
   ).run(job.previous_status ?? "found", id);
 
   return getJob(id);
+}
+
+/**
+ * Permanently excludes a job as a bad fit — the "Exclude" button on New
+ * Jobs. Unlike dismiss/hide, this is not reversible from the UI and the job
+ * never appears in any tab again (see the GET / route filtering out
+ * 'excluded'). The row is kept, not hard-deleted, and is exempted from
+ * pruneOldArchivedJobs — same reason dismissed jobs are kept: exact-URL
+ * dedup in insertJobIfNew needs the row to still exist, or the same
+ * posting would just resurface as "new" on the next scan.
+ */
+export function excludeJob(id: number): void {
+  db.prepare("UPDATE jobs SET status = 'excluded' WHERE id = ?").run(id);
 }
 
 export interface CompanyVerdict {

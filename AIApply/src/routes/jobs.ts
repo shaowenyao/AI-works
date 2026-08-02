@@ -1,19 +1,24 @@
 import { Router } from "express";
 import {
+  db,
   listJobs,
   markJobRequested,
   markJobApplied,
   dismissJob,
   undoLastDismiss,
   unhideJob,
+  excludeJob,
   insertDummyJob,
+  insertJobIfNew,
   pruneOldArchivedJobs,
   hideDuplicates,
   setPipelineStage,
   PIPELINE_STAGES,
   setFavorite,
 } from "../db/client.js";
-import { scanJobs } from "../jobs/scan.js";
+import type { JobRow } from "../db/client.js";
+import { scanJobs, resolvePriority } from "../jobs/scan.js";
+import { isRemoteConfirmed, isLocalToSf } from "../jobs/locationClassifier.js";
 import { isDesignTitle } from "../../public/shared/jobFilters.js";
 
 export const jobsRouter = Router();
@@ -21,10 +26,19 @@ export const jobsRouter = Router();
 // Only design-role postings are ever shown in the UI (see isDesignTitle),
 // so filtering here — not just client-side — keeps the response small: the
 // scanner pulls every posting from each tracked company, and most aren't
-// design roles at all.
+// design roles at all. manually_imported jobs (added by exact URL via
+// POST /import) are exempt — the user explicitly chose that one posting,
+// so it should always show regardless of title. Excluded jobs (see
+// excludeJob) are filtered out here too — the row stays in the DB (so a
+// rescan can't resurrect it), it just never reaches the client at all, in
+// any tab.
 jobsRouter.get("/", (_req, res) => {
   pruneOldArchivedJobs();
-  res.json(hideDuplicates(listJobs()).filter(isDesignTitle));
+  res.json(
+    hideDuplicates(listJobs())
+      .filter((job) => job.manually_imported || isDesignTitle(job))
+      .filter((job) => job.status !== "excluded"),
+  );
 });
 
 // Adds a fake, unverified job for testing the UI (e.g. the "Legit company"
@@ -150,5 +164,52 @@ jobsRouter.post("/:id/favorite", (req, res) => {
     res.json({ favorited });
   } catch (err) {
     res.status(500).json({ error: (err as Error).message });
+  }
+});
+
+// The "Exclude" button on New Jobs — a permanent, non-reversible-from-the-UI
+// "this is a bad fit, never show it again" flag. See excludeJob() for why
+// the row is kept (not hard-deleted) despite never appearing in the UI again.
+jobsRouter.post("/:id/exclude", (req, res) => {
+  const id = Number(req.params.id);
+  try {
+    excludeJob(id);
+    res.json({ status: "excluded" });
+  } catch (err) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
+// "Add job" (outside demo mode) — imports one specific posting by URL
+// instead of scanning a whole company board. See jobs/importByUrl.ts for
+// which job boards are actually supported.
+jobsRouter.post("/import", async (req, res) => {
+  const url = req.body?.url;
+  if (typeof url !== "string" || !url.trim()) {
+    res.status(400).json({ error: "A URL is required." });
+    return;
+  }
+  try {
+    const { importJobFromUrl } = await import("../jobs/importByUrl.js");
+    const posting = await importJobFromUrl(url.trim());
+    const inserted = insertJobIfNew({
+      ...posting,
+      priority: resolvePriority(posting.company, posting.priority),
+      isRemote: isRemoteConfirmed(posting),
+      isLocalSf: isLocalToSf(posting),
+      manuallyImported: true,
+    });
+    if (!inserted) {
+      res.status(409).json({ error: "That job is already in your list." });
+      return;
+    }
+    // The client needs is_remote/is_local_sf back so it can switch the
+    // Remote/Local filter to whichever actually matches this posting —
+    // otherwise a freshly imported job can silently fail to appear if it
+    // doesn't match whatever filter happened to be selected.
+    const job = db.prepare("SELECT * FROM jobs WHERE url = ?").get(posting.url) as JobRow;
+    res.json({ status: "imported", job });
+  } catch (err) {
+    res.status(400).json({ error: (err as Error).message });
   }
 });

@@ -16,7 +16,7 @@ import type { JobPosting } from "./sources/types.js";
  * (see db/client.ts recordCompanyVerdict). Anything else stays unflagged and
  * shows up in listUncheckedCompanies() for a future check.
  */
-function resolvePriority(companyName: string, manualPriority: boolean | undefined): boolean {
+export function resolvePriority(companyName: string, manualPriority: boolean | undefined): boolean {
   if (manualPriority || isKnownPriorityCompany(companyName)) return true;
   const verdict = getCompanyVerdict(companyName);
   return verdict ? Boolean(verdict.decent) : false;

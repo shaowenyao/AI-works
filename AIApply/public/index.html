@@ -14,6 +14,11 @@
         padding: 0 1rem;
         color: #1a1a1a;
         background: #f5f6f7;
+        /* The apply-notice banner and card list both resize as jobs move
+           between tabs — without this, the browser's scroll anchoring
+           quietly re-adjusts scrollTop to compensate, fighting any
+           explicit window.scrollTo(0, 0) call right after. */
+        overflow-anchor: none;
       }
       h1 {
         display: flex;
@@ -206,6 +211,116 @@
         cursor: pointer;
         padding: 0 0.2rem;
       }
+      .exclude-btn,
+      .hide-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 2rem;
+        padding: 0.4rem;
+      }
+      .exclude-btn {
+        color: #b3261e;
+        border-color: #f3c9c9;
+      }
+      .exclude-btn:hover:not(:disabled) {
+        background: #fdf1f0;
+      }
+      .spinner {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        border: 2px solid rgba(255, 255, 255, 0.4);
+        border-top-color: #fff;
+        border-radius: 50%;
+        animation: spin 0.7s linear infinite;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      .apply-notice {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        margin: 0.5rem 0 1rem;
+        padding: 0.5rem 0.75rem;
+        background: #eef6ec;
+        border: 1px solid #cfe8c8;
+        border-radius: 8px;
+        color: #2f6b26;
+        font-size: 0.85rem;
+      }
+      .apply-notice[hidden] {
+        display: none;
+      }
+      .dismiss-notice-btn {
+        border: none;
+        background: none;
+        color: #2f6b26;
+        font-size: 1.1rem;
+        line-height: 1;
+        cursor: pointer;
+        padding: 0 0.2rem;
+      }
+      .modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.4);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10;
+      }
+      .modal-overlay[hidden] {
+        display: none;
+      }
+      .modal {
+        background: #fff;
+        border-radius: 12px;
+        padding: 1.5rem;
+        width: 420px;
+        max-width: calc(100vw - 2rem);
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+      }
+      .modal h2 {
+        margin: 0 0 0.5rem;
+        font-size: 1.1rem;
+      }
+      .modal-hint {
+        margin: 0 0 0.9rem;
+        font-size: 0.8rem;
+        color: #6b7280;
+      }
+      .modal-error {
+        margin: 0.6rem 0 0;
+        font-size: 0.8rem;
+        color: #b3261e;
+      }
+      .modal-error[hidden] {
+        display: none;
+      }
+      #add-job-url-input {
+        width: 100%;
+        border: 1px solid #d8dbdf;
+        background: #fff;
+        border-radius: 8px;
+        padding: 0.5rem 0.75rem;
+        font-size: 0.85rem;
+        color: #1a1a1a;
+      }
+      #add-job-url-input:focus {
+        outline: none;
+        border-color: #9aa0a8;
+      }
+      .modal-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.5rem;
+        margin-top: 1.1rem;
+      }
       .legit-check {
         display: flex;
         align-items: center;
@@ -336,7 +451,7 @@
       <span class="header-actions">
         <button id="dummy-btn">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          Add job
+          <span id="dummy-btn-label">Add job</span>
         </button>
         <button id="undo-btn" title="Undo the last delete">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
@@ -369,6 +484,10 @@
       </span>
       <span class="filter-note" id="filter-note"></span>
     </div>
+    <div class="apply-notice" id="apply-notice" hidden>
+      <span id="apply-notice-text"></span>
+      <button class="dismiss-notice-btn" id="apply-notice-dismiss" aria-label="Dismiss">&times;</button>
+    </div>
     <p id="empty" hidden>
       No jobs yet. Ask Claude to add the companies you want to track, then click "Scan for new jobs".
     </p>
@@ -387,6 +506,18 @@
       <label class="demo-mode-check" title="Lets 'Apply with AI fill' be used right after 'Optimize CV', without waiting for real documents to be generated — for UX testing/demos">
         <input type="checkbox" id="demo-mode-toggle" /> Demo mode
       </label>
+    </div>
+    <div class="modal-overlay" id="add-job-modal" hidden>
+      <div class="modal">
+        <h2>Add a job</h2>
+        <p class="modal-hint">Paste a direct posting URL from Greenhouse or Lever (e.g. boards.greenhouse.io/... or jobs.lever.co/...). LinkedIn isn't supported.</p>
+        <input type="url" id="add-job-url-input" placeholder="https://boards.greenhouse.io/acme/jobs/1234567" />
+        <p class="modal-error" id="add-job-error" hidden></p>
+        <div class="modal-actions">
+          <button id="add-job-cancel-btn">Cancel</button>
+          <button id="add-job-submit-btn" class="btn-dark">Import</button>
+        </div>
+      </div>
     </div>
     <script type="module" src="app.js"></script>
   </body>
