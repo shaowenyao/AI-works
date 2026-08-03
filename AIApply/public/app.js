@@ -296,24 +296,27 @@ function isSeniorTitle(job) {
 function renderJobs() {
   const query = searchQueries[currentTab].trim().toLowerCase();
 
-  // A job just added via URL import is exempt from every content filter
-  // below (location, design-title, seniority, search) — the user explicitly
-  // chose to add that exact posting, so it should always be visible at the
-  // top of New Jobs, full stop, regardless of what it's about or how it's
-  // worded. Only matchesTab still applies, since a fresh import is a "found"
-  // job today, which already satisfies the New Jobs tab on its own.
+  // Any job added via URL import (job.manually_imported, persisted — not
+  // just the one from this page session) is exempt from every content
+  // filter below (location, design-title, seniority, search): the user
+  // explicitly chose to add that exact posting, so it should always stay
+  // visible, full stop, regardless of what it's about, how it's worded, or
+  // how much later this page gets reloaded. Only matchesTab still applies.
+  // Separately, the most recently imported one (justImportedJobId, session-
+  // only) also gets pinned to the very top of New Jobs — see the sort
+  // below — as immediate feedback right after adding it.
   const jobs = allJobs
     .filter(matchesTab)
     .filter(
       (job) =>
-        job.id === justImportedJobId ||
+        job.manually_imported ||
         (locationFilter.value === "remote" ? isRemoteJob(job) : isLocalJob(job)),
     )
-    .filter((job) => job.id === justImportedJobId || isDesignTitle(job))
-    .filter((job) => job.id === justImportedJobId || !isSeniorTitle(job))
+    .filter((job) => job.manually_imported || isDesignTitle(job))
+    .filter((job) => job.manually_imported || !isSeniorTitle(job))
     .filter(
       (job) =>
-        job.id === justImportedJobId ||
+        job.manually_imported ||
         !query ||
         job.title.toLowerCase().includes(query) ||
         job.company.toLowerCase().includes(query),
