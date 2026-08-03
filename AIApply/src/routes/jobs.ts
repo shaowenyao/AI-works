@@ -15,6 +15,9 @@ import {
   setPipelineStage,
   PIPELINE_STAGES,
   setFavorite,
+  getJob,
+  isCompanyBlocked,
+  blockCompany,
 } from "../db/client.js";
 import type { JobRow } from "../db/client.js";
 import { scanJobs, resolvePriority } from "../jobs/scan.js";
@@ -180,6 +183,25 @@ jobsRouter.post("/:id/exclude", (req, res) => {
   }
 });
 
+// The "Flag company" button on Applied Jobs — for a whole company you've
+// decided is a scam, not just one bad-fit posting (that's exclude above).
+// Blocks the company outright: every existing job of theirs is excluded
+// immediately and blockCompany() stops any future ones from being added.
+jobsRouter.post("/:id/flag-company", (req, res) => {
+  const id = Number(req.params.id);
+  try {
+    const job = getJob(id);
+    if (!job) {
+      res.status(404).json({ error: "Job not found." });
+      return;
+    }
+    blockCompany(job.company);
+    res.json({ status: "blocked", company: job.company });
+  } catch (err) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
 // "Add job" (outside demo mode) — imports one specific posting by URL
 // instead of scanning a whole company board. See jobs/importByUrl.ts for
 // which job boards are actually supported.
@@ -192,6 +214,10 @@ jobsRouter.post("/import", async (req, res) => {
   try {
     const { importJobFromUrl } = await import("../jobs/importByUrl.js");
     const posting = await importJobFromUrl(url.trim());
+    if (isCompanyBlocked(posting.company)) {
+      res.status(409).json({ error: `${posting.company} is flagged as a scam company and can't be added.` });
+      return;
+    }
     const inserted = insertJobIfNew({
       ...posting,
       priority: resolvePriority(posting.company, posting.priority),

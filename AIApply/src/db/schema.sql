@@ -25,3 +25,11 @@ CREATE TABLE IF NOT EXISTS company_verdicts (
   note TEXT,
   checked_at TEXT NOT NULL
 );
+
+-- Companies flagged as a scam/bad-actor via the "Flag company" button on
+-- Applied Jobs. Every existing posting from that company is excluded
+-- immediately, and insertJobIfNew() refuses to add any future ones.
+CREATE TABLE IF NOT EXISTS blocked_companies (
+  company TEXT PRIMARY KEY COLLATE NOCASE,
+  blocked_at TEXT NOT NULL
+);

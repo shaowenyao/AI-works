@@ -125,6 +125,7 @@ const icons = {
   starOutline: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`,
   starFilled: `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`,
   x: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`,
+  flag: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="3"/></svg>`,
 };
 
 function escapeHtml(str) {
@@ -153,13 +154,10 @@ function jobCard(job) {
       ? ""
       : `<span class="status">${escapeHtml(job.status)}</span>`;
   const favoriteControl = `<button class="favorite-btn" data-favorited="${job.favorited ? "true" : "false"}" title="${job.favorited ? "Unfavorite" : "Favorite"}">${job.favorited ? icons.starFilled : icons.starOutline}</button>`;
-  // Only on New Jobs — a permanent, non-reversible "bad fit, never show
-  // this again" flag (see excludeJob in db/client.ts), distinct from Hide
-  // (which is reversible and keeps the job around in Hidden Jobs).
-  const excludeControl =
-    currentTab === "current"
-      ? `<button class="exclude-btn" title="Exclude — permanently delete this job for being a bad fit" aria-label="Exclude">${icons.x}</button>`
-      : "";
+  // On every tab — a permanent, non-reversible delete (see excludeJob in
+  // db/client.ts), distinct from Hide (which is reversible and keeps the
+  // job around in Hidden Jobs).
+  const excludeControl = `<button class="exclude-btn" title="Delete — this job cannot be fetched again" aria-label="Delete">${icons.x}</button>`;
 
   // Toggles between the two actions instead of being two separate buttons —
   // "Hide" (dismissJob) stashes the job's current status so "Unhide"
@@ -168,6 +166,13 @@ function jobCard(job) {
   const hideControl = isHidden
     ? `<button class="hide-btn" data-hidden="true" title="Unhide" aria-label="Unhide">${icons.eye}</button>`
     : `<button class="hide-btn" data-hidden="false" title="Hide" aria-label="Hide">${icons.eyeOff}</button>`;
+
+  // On every tab — flags the whole company as a scam (see blockCompany in
+  // db/client.ts), not just this one posting: every job of theirs already
+  // tracked gets excluded too, and future scans/imports skip the company
+  // entirely. Distinct from Exclude/Delete, which only ever touches the
+  // single job it's clicked on.
+  const flagCompanyControl = `<button class="flag-company-btn" title="Flag company — block ${escapeHtml(job.company)} as a scam company" aria-label="Flag company">${icons.flag}</button>`;
 
   const generateControl =
     hasDocs || isApplied
@@ -257,6 +262,7 @@ function jobCard(job) {
         ${applyControl}
         ${isApplied ? "" : favoriteControl}
         ${hideControl}
+        ${flagCompanyControl}
         ${excludeControl}
         <span class="links">
           ${applyOrderBadge}
@@ -517,7 +523,7 @@ function wireJobCardEvents() {
     });
 
     card.querySelector(".exclude-btn")?.addEventListener("click", async (e) => {
-      if (!confirm("Are you sure you want to permanently delete this job for being a bad fit?")) return;
+      if (!confirm("Delete this job? It cannot be fetched again.")) return;
       const btn = e.currentTarget;
       btn.disabled = true;
       try {
@@ -525,6 +531,19 @@ function wireJobCardEvents() {
         await loadJobs();
       } catch (err) {
         alert(`Failed to exclude: ${err.message}`);
+        btn.disabled = false;
+      }
+    });
+
+    card.querySelector(".flag-company-btn")?.addEventListener("click", async (e) => {
+      if (!confirm(`Flag ${company} as a scam company? All of their postings will be removed and they won't be added again.`)) return;
+      const btn = e.currentTarget;
+      btn.disabled = true;
+      try {
+        await fetch(`/api/jobs/${id}/flag-company`, { method: "POST" });
+        await loadJobs();
+      } catch (err) {
+        alert(`Failed to flag company: ${err.message}`);
         btn.disabled = false;
       }
     });

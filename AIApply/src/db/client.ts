@@ -191,10 +191,14 @@ export interface NewJob {
   manuallyImported?: boolean;
 }
 
-/** Inserts a job if its URL isn't already known. Returns true if a new row was inserted. */
+/**
+ * Inserts a job if its URL isn't already known and its company isn't
+ * blocked (see blockCompany). Returns true if a new row was inserted.
+ */
 export function insertJobIfNew(job: NewJob): boolean {
   const existing = db.prepare("SELECT id FROM jobs WHERE url = ?").get(job.url);
   if (existing) return false;
+  if (isCompanyBlocked(job.company)) return false;
 
   db.prepare(
     `INSERT INTO jobs (company, title, url, source, description, date_found, status, priority, location, is_remote, is_local_sf, manually_imported)
@@ -527,6 +531,29 @@ export function unhideJob(id: number): JobRow | undefined {
  */
 export function excludeJob(id: number): void {
   db.prepare("UPDATE jobs SET status = 'excluded' WHERE id = ?").run(id);
+}
+
+export function isCompanyBlocked(company: string): boolean {
+  return Boolean(
+    db.prepare("SELECT 1 FROM blocked_companies WHERE company = ? COLLATE NOCASE").get(company),
+  );
+}
+
+/**
+ * "Flag company" on Applied Jobs — for a company you've decided is a scam,
+ * not just a bad-fit single posting (that's excludeJob). Excludes every
+ * existing job from that company right away (same 'excluded' status and
+ * same reasoning as excludeJob: kept in the DB, not hard-deleted, so a
+ * rescan's exact-URL dedup still works and the company can't resurface),
+ * and insertJobIfNew() checks blocked_companies so future scans skip it
+ * entirely rather than needing to exclude each new posting one at a time.
+ */
+export function blockCompany(company: string): void {
+  db.prepare("INSERT OR IGNORE INTO blocked_companies (company, blocked_at) VALUES (?, ?)").run(
+    company,
+    new Date().toISOString(),
+  );
+  db.prepare("UPDATE jobs SET status = 'excluded' WHERE company = ? COLLATE NOCASE").run(company);
 }
 
 export interface CompanyVerdict {
