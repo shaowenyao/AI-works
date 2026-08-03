@@ -3,6 +3,7 @@ dist/
 .env
 data/
 toapply-docs/
+webapp-docs/
 .DS_Store
 Documents/
 build_resumes.mjs

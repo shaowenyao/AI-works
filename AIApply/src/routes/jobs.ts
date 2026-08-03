@@ -18,30 +18,64 @@ import {
   getJob,
   isCompanyBlocked,
   blockCompany,
+  getJobSettings,
+  saveJobSettings,
 } from "../db/client.js";
-import type { JobRow } from "../db/client.js";
+import type { JobRow, JobSettings } from "../db/client.js";
 import { scanJobs, resolvePriority } from "../jobs/scan.js";
 import { isRemoteConfirmed, isLocalToSf } from "../jobs/locationClassifier.js";
 import { isDesignTitle } from "../../public/shared/jobFilters.js";
 
 export const jobsRouter = Router();
 
+function matchesAnyTerm(title: string, terms: string[]): boolean {
+  const lowerTitle = title.toLowerCase();
+  return terms.some((term) => lowerTitle.includes(term.toLowerCase()));
+}
+
 // Only design-role postings are ever shown in the UI (see isDesignTitle),
 // so filtering here — not just client-side — keeps the response small: the
 // scanner pulls every posting from each tracked company, and most aren't
-// design roles at all. manually_imported jobs (added by exact URL via
-// POST /import) are exempt — the user explicitly chose that one posting,
-// so it should always show regardless of title. Excluded jobs (see
-// excludeJob) are filtered out here too — the row stays in the DB (so a
-// rescan can't resurrect it), it just never reaches the client at all, in
-// any tab.
+// design roles at all. The Job Settings panel's Job Title tab adds two more
+// layers on top: includeTerms lets a title through even if isDesignTitle
+// rejects it, excludeTerms hides one even if it passed. manually_imported
+// jobs (added by exact URL via POST /import) are exempt from all three —
+// the user explicitly chose that one posting, so it should always show
+// regardless of title. Excluded jobs (see excludeJob/blockCompany) are
+// filtered out here too — the row stays in the DB (so a rescan can't
+// resurrect it), it just never reaches the client at all, in any tab.
 jobsRouter.get("/", (_req, res) => {
   pruneOldArchivedJobs();
+  const { includeTerms, excludeTerms } = getJobSettings();
   res.json(
     hideDuplicates(listJobs())
-      .filter((job) => job.manually_imported || isDesignTitle(job))
+      .filter((job) => job.manually_imported || isDesignTitle(job) || matchesAnyTerm(job.title, includeTerms))
+      .filter((job) => job.manually_imported || !matchesAnyTerm(job.title, excludeTerms))
       .filter((job) => job.status !== "excluded"),
   );
+});
+
+// The Job Settings slide-out panel — Companies tab (priority/banned) and
+// Job Title tab (include/exclude terms), saved together as one unit.
+jobsRouter.get("/job-settings", (_req, res) => {
+  res.json(getJobSettings());
+});
+
+jobsRouter.post("/job-settings", (req, res) => {
+  const body = req.body ?? {};
+  const asStringArray = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x) => typeof x === "string") : []);
+  const settings: JobSettings = {
+    priorityCompanies: asStringArray(body.priorityCompanies),
+    bannedCompanies: asStringArray(body.bannedCompanies),
+    includeTerms: asStringArray(body.includeTerms),
+    excludeTerms: asStringArray(body.excludeTerms),
+  };
+  try {
+    saveJobSettings(settings);
+    res.json(getJobSettings());
+  } catch (err) {
+    res.status(500).json({ error: (err as Error).message });
+  }
 });
 
 // Adds a fake, unverified job for testing the UI (e.g. the "Legit company"
@@ -220,7 +254,7 @@ jobsRouter.post("/import", async (req, res) => {
     }
     const inserted = insertJobIfNew({
       ...posting,
-      priority: resolvePriority(posting.company, posting.priority),
+      priority: resolvePriority(posting.company),
       isRemote: isRemoteConfirmed(posting),
       isLocalSf: isLocalToSf(posting),
       manuallyImported: true,

@@ -6,18 +6,16 @@ import { fetchAshbyJobs } from "./sources/ashby.js";
 import { fetchSmartRecruitersJobs } from "./sources/smartrecruiters.js";
 import { fetchBambooHrJobs } from "./sources/bamboohr.js";
 import { watchedCompanies, type WatchedCompany } from "./sources/config.js";
-import { isKnownPriorityCompany } from "./priorityCompanies.js";
 import { isRemoteConfirmed, isLocalToSf } from "./locationClassifier.js";
 import type { JobPosting } from "./sources/types.js";
 
 /**
- * Manual config flag, OR an automatically-recognized major company (MAANGA,
- * Fortune 50, etc), OR a cached verdict from a prior Claude legitimacy check
- * (see db/client.ts recordCompanyVerdict). Anything else stays unflagged and
+ * Priority is entirely driven by company_verdicts now (see db/client.ts
+ * recordCompanyVerdict) — set from the Job Settings panel's "Companies to
+ * add" list, not any hardcoded list in code. A company with no verdict yet
  * shows up in listUncheckedCompanies() for a future check.
  */
-export function resolvePriority(companyName: string, manualPriority: boolean | undefined): boolean {
-  if (manualPriority || isKnownPriorityCompany(companyName)) return true;
+export function resolvePriority(companyName: string): boolean {
   const verdict = getCompanyVerdict(companyName);
   return verdict ? Boolean(verdict.decent) : false;
 }
@@ -58,9 +56,9 @@ export async function scanJobs(): Promise<{ found: number; new: number }> {
   ];
 
   for (const source of sources) {
-    for (const { name, boardId, priority } of source.entries) {
+    for (const { name, boardId } of source.entries) {
       const jobs = await fetchSilently(source, boardId, name);
-      results.push(...jobs.map((job) => ({ ...job, priority: resolvePriority(name, priority) })));
+      results.push(...jobs.map((job) => ({ ...job, priority: resolvePriority(name) })));
     }
   }
 

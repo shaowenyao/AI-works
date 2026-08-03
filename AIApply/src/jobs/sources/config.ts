@@ -3,15 +3,13 @@
  * interested in. `boardId` is the identifier from that company's public job
  * board URL (see the comment on each fetcher for how to find it).
  *
- * Set `priority: true` for companies where a tailored resume is obviously
- * worth the effort (e.g. Meta) — priority jobs sort to the top of the list
- * and are badged in the UI, so you can tell at a glance which "Generate
- * Resume" clicks are worth your time vs. some unknown small company.
+ * Which of these are "priority" (tailored-resume-worthy, badged and sorted
+ * to the top) is managed entirely from the Job Settings panel's "Companies
+ * to add" list now, not here — see company_verdicts in db/client.ts.
  */
 export interface WatchedCompany {
   name: string;
   boardId: string;
-  priority?: boolean;
 }
 
 // The ~50 companies below were requested as "top tech companies from
@@ -28,51 +26,47 @@ export const watchedCompanies = {
     // that list (Meta, Amazon, Apple, Google, Microsoft, NVIDIA, Tesla, etc.)
     // 404s on every platform below since they run proprietary/Workday-style
     // career sites this app can't reach at all. These are the exceptions.
-    { name: "Anthropic", boardId: "anthropic", priority: true },
-    { name: "Disney", boardId: "disney", priority: true },
-    { name: "Block", boardId: "block", priority: true },
-    { name: "Figma", boardId: "figma", priority: true },
-    { name: "Stripe", boardId: "stripe", priority: true },
-    { name: "Airbnb", boardId: "airbnb", priority: true },
-    { name: "Dropbox", boardId: "dropbox", priority: true },
-    { name: "Robinhood", boardId: "robinhood", priority: true },
-    { name: "Discord", boardId: "discord", priority: true },
-    { name: "Asana", boardId: "asana", priority: true },
-    { name: "Coinbase", boardId: "coinbase", priority: true },
-    { name: "Affirm", boardId: "affirm", priority: true },
-    { name: "Pinterest", boardId: "pinterest", priority: true },
-    { name: "Twitch", boardId: "twitch", priority: true },
-    { name: "Peloton", boardId: "peloton", priority: true },
-    { name: "Nextdoor", boardId: "nextdoor", priority: true },
-    { name: "Cloudflare", boardId: "cloudflare", priority: true },
-    { name: "Databricks", boardId: "databricks", priority: true },
-    { name: "GitLab", boardId: "gitlab", priority: true },
-    { name: "Elastic", boardId: "elastic", priority: true },
-    { name: "Reddit", boardId: "reddit", priority: true },
-    { name: "Instacart", boardId: "instacart", priority: true },
-    { name: "Squarespace", boardId: "squarespace", priority: true },
-    { name: "Lyft", boardId: "lyft", priority: true },
-    { name: "Twilio", boardId: "twilio", priority: true },
-    { name: "Okta", boardId: "okta", priority: true },
-    { name: "Datadog", boardId: "datadog", priority: true },
-    { name: "Brex", boardId: "brex", priority: true },
-    { name: "Webflow", boardId: "webflow", priority: true },
-    { name: "Duolingo", boardId: "duolingo", priority: true },
-    { name: "Roblox", boardId: "roblox", priority: true },
-    { name: "Samsara", boardId: "samsara", priority: true },
-    { name: "Toast", boardId: "toast", priority: true },
-    { name: "Udemy", boardId: "udemy", priority: true },
-    { name: "Calendly", boardId: "calendly", priority: true },
-    { name: "Carta", boardId: "carta", priority: true },
-    { name: "DoorDash", boardId: "doordashusa", priority: true },
-    { name: "Gusto", boardId: "gusto", priority: true },
+    { name: "Anthropic", boardId: "anthropic" },
+    { name: "Disney", boardId: "disney" },
+    { name: "Block", boardId: "block" },
+    { name: "Figma", boardId: "figma" },
+    { name: "Stripe", boardId: "stripe" },
+    { name: "Airbnb", boardId: "airbnb" },
+    { name: "Dropbox", boardId: "dropbox" },
+    { name: "Robinhood", boardId: "robinhood" },
+    { name: "Discord", boardId: "discord" },
+    { name: "Asana", boardId: "asana" },
+    { name: "Coinbase", boardId: "coinbase" },
+    { name: "Affirm", boardId: "affirm" },
+    { name: "Pinterest", boardId: "pinterest" },
+    { name: "Twitch", boardId: "twitch" },
+    { name: "Peloton", boardId: "peloton" },
+    { name: "Nextdoor", boardId: "nextdoor" },
+    { name: "Cloudflare", boardId: "cloudflare" },
+    { name: "Databricks", boardId: "databricks" },
+    { name: "GitLab", boardId: "gitlab" },
+    { name: "Elastic", boardId: "elastic" },
+    { name: "Reddit", boardId: "reddit" },
+    { name: "Instacart", boardId: "instacart" },
+    { name: "Squarespace", boardId: "squarespace" },
+    { name: "Lyft", boardId: "lyft" },
+    { name: "Twilio", boardId: "twilio" },
+    { name: "Okta", boardId: "okta" },
+    { name: "Datadog", boardId: "datadog" },
+    { name: "Brex", boardId: "brex" },
+    { name: "Webflow", boardId: "webflow" },
+    { name: "Duolingo", boardId: "duolingo" },
+    { name: "Roblox", boardId: "roblox" },
+    { name: "Samsara", boardId: "samsara" },
+    { name: "Toast", boardId: "toast" },
+    { name: "Udemy", boardId: "udemy" },
+    { name: "Calendly", boardId: "calendly" },
+    { name: "Carta", boardId: "carta" },
+    { name: "DoorDash", boardId: "doordashusa" },
+    { name: "Gusto", boardId: "gusto" },
 
-    // Added beyond the curated priority set, per user request, to broaden
-    // coverage past the pre-vetted list above. Deliberately NOT marked
-    // priority here — each gets a recorded legitimacy verdict instead (see
-    // recordCompanyVerdict calls), which sets their priority flag while
-    // keeping the "Legit company" checkbox visible so the user can still
-    // confirm or override the call themselves.
+    // Added beyond the original curated set, per user request, to broaden
+    // coverage past the list above.
     { name: "Airtable", boardId: "airtable" },
     { name: "Intercom", boardId: "intercom" },
     { name: "Typeform", boardId: "typeform" },
@@ -84,28 +78,28 @@ export const watchedCompanies = {
     { name: "Gemini", boardId: "gemini" },
   ] as WatchedCompany[],
   lever: [
-    { name: "Netflix", boardId: "netflix", priority: true },
-    { name: "Spotify", boardId: "spotify", priority: true },
-    { name: "Ro", boardId: "ro", priority: true },
-    { name: "Palantir", boardId: "palantir", priority: true },
+    { name: "Netflix", boardId: "netflix" },
+    { name: "Spotify", boardId: "spotify" },
+    { name: "Ro", boardId: "ro" },
+    { name: "Palantir", boardId: "palantir" },
 
     { name: "Wealthfront", boardId: "wealthfront" },
     { name: "Whoop", boardId: "whoop" },
   ] as WatchedCompany[],
   ashby: [
-    { name: "OpenAI", boardId: "openai", priority: true },
-    { name: "Ramp", boardId: "ramp", priority: true },
-    { name: "Linear", boardId: "linear", priority: true },
-    { name: "Vercel", boardId: "vercel", priority: true },
-    { name: "Mercury", boardId: "mercury", priority: true },
-    { name: "Deel", boardId: "deel", priority: true },
-    { name: "Watershed", boardId: "watershed", priority: true },
-    { name: "Modern Treasury", boardId: "moderntreasury", priority: true },
-    { name: "Runway", boardId: "runway", priority: true },
-    { name: "Render", boardId: "render", priority: true },
-    { name: "PostHog", boardId: "posthog", priority: true },
-    { name: "Replit", boardId: "replit", priority: true },
-    { name: "Cursor", boardId: "cursor", priority: true },
+    { name: "OpenAI", boardId: "openai" },
+    { name: "Ramp", boardId: "ramp" },
+    { name: "Linear", boardId: "linear" },
+    { name: "Vercel", boardId: "vercel" },
+    { name: "Mercury", boardId: "mercury" },
+    { name: "Deel", boardId: "deel" },
+    { name: "Watershed", boardId: "watershed" },
+    { name: "Modern Treasury", boardId: "moderntreasury" },
+    { name: "Runway", boardId: "runway" },
+    { name: "Render", boardId: "render" },
+    { name: "PostHog", boardId: "posthog" },
+    { name: "Replit", boardId: "replit" },
+    { name: "Cursor", boardId: "cursor" },
 
     { name: "Notion", boardId: "notion" },
     { name: "Miro", boardId: "miro" },

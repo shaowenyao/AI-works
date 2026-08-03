@@ -33,3 +33,23 @@ CREATE TABLE IF NOT EXISTS blocked_companies (
   company TEXT PRIMARY KEY COLLATE NOCASE,
   blocked_at TEXT NOT NULL
 );
+
+-- The Job Settings panel's Job Title tab. A job whose title contains an
+-- include term is shown even if isDesignTitle() would otherwise reject it;
+-- a job whose title contains an exclude term is hidden even if it would
+-- otherwise pass (manually_imported jobs still bypass both, same as every
+-- other content filter).
+CREATE TABLE IF NOT EXISTS title_include_terms (
+  term TEXT PRIMARY KEY COLLATE NOCASE
+);
+CREATE TABLE IF NOT EXISTS title_exclude_terms (
+  term TEXT PRIMARY KEY COLLATE NOCASE
+);
+
+-- The User Settings panel's "Job titles" pill list — roles the user is
+-- personally targeting. Display/reference only for now, not wired into any
+-- scan/filter logic (that's what the Job Settings title_include_terms are
+-- for).
+CREATE TABLE IF NOT EXISTS target_job_titles (
+  term TEXT PRIMARY KEY COLLATE NOCASE
+);

@@ -556,6 +556,18 @@ export function blockCompany(company: string): void {
   db.prepare("UPDATE jobs SET status = 'excluded' WHERE company = ? COLLATE NOCASE").run(company);
 }
 
+/** Un-bans a company (Job Settings panel) — does not un-exclude jobs already excluded by blockCompany(). */
+export function unblockCompany(company: string): void {
+  db.prepare("DELETE FROM blocked_companies WHERE company = ? COLLATE NOCASE").run(company);
+}
+
+export function listBlockedCompanies(): string[] {
+  const rows = db.prepare("SELECT company FROM blocked_companies ORDER BY company COLLATE NOCASE ASC").all() as {
+    company: string;
+  }[];
+  return rows.map((r) => r.company);
+}
+
 export interface CompanyVerdict {
   company: string;
   decent: number;
@@ -586,6 +598,14 @@ export function recordCompanyVerdict(company: string, decent: boolean, note?: st
   db.prepare("UPDATE jobs SET priority = ? WHERE company = ? COLLATE NOCASE").run(decent ? 1 : 0, company);
 }
 
+/** Companies added on the Job Settings panel's Companies tab (via recordCompanyVerdict(company, true)). */
+export function listPriorityCompanies(): string[] {
+  const rows = db
+    .prepare("SELECT company FROM company_verdicts WHERE decent = 1 ORDER BY company COLLATE NOCASE ASC")
+    .all() as { company: string }[];
+  return rows.map((r) => r.company);
+}
+
 /**
  * Distinct companies that showed up in a scan but aren't on the static
  * auto-priority list, weren't manually flagged, and have no cached verdict
@@ -601,4 +621,79 @@ export function listUncheckedCompanies(): string[] {
     )
     .all() as { company: string }[];
   return rows.map((r) => r.company);
+}
+
+type TermTable = "title_include_terms" | "title_exclude_terms" | "target_job_titles";
+
+function listTerms(table: TermTable): string[] {
+  const rows = db.prepare(`SELECT term FROM ${table} ORDER BY term COLLATE NOCASE ASC`).all() as {
+    term: string;
+  }[];
+  return rows.map((r) => r.term);
+}
+
+/** Replaces the whole contents of one term list — Save on the Job/User Settings panels is a batch operation, not per-item. */
+function replaceTerms(table: TermTable, terms: string[]): void {
+  db.exec(`DELETE FROM ${table}`);
+  const insert = db.prepare(`INSERT OR IGNORE INTO ${table} (term) VALUES (?)`);
+  for (const term of terms) {
+    const trimmed = term.trim();
+    if (trimmed) insert.run(trimmed);
+  }
+}
+
+export interface JobSettings {
+  priorityCompanies: string[];
+  bannedCompanies: string[];
+  includeTerms: string[];
+  excludeTerms: string[];
+}
+
+export function getJobSettings(): JobSettings {
+  return {
+    priorityCompanies: listPriorityCompanies(),
+    bannedCompanies: listBlockedCompanies(),
+    includeTerms: listTerms("title_include_terms"),
+    excludeTerms: listTerms("title_exclude_terms"),
+  };
+}
+
+/**
+ * Saves the Job Settings panel in one shot. Companies are diffed against
+ * the current state (recordCompanyVerdict/blockCompany/unblockCompany all
+ * have side effects on existing jobs, so only actually calling them for
+ * what changed avoids redundant work); title terms are simple table
+ * replacements since matching them has no side effects to worry about.
+ */
+export function saveJobSettings(settings: JobSettings): void {
+  const before = getJobSettings();
+
+  const beforePriority = new Set(before.priorityCompanies.map((c) => c.toLowerCase()));
+  const afterPriority = new Set(settings.priorityCompanies.map((c) => c.toLowerCase()));
+  for (const company of settings.priorityCompanies) {
+    if (!beforePriority.has(company.toLowerCase())) recordCompanyVerdict(company, true);
+  }
+  for (const company of before.priorityCompanies) {
+    if (!afterPriority.has(company.toLowerCase())) recordCompanyVerdict(company, false);
+  }
+
+  const beforeBanned = new Set(before.bannedCompanies.map((c) => c.toLowerCase()));
+  const afterBanned = new Set(settings.bannedCompanies.map((c) => c.toLowerCase()));
+  for (const company of settings.bannedCompanies) {
+    if (!beforeBanned.has(company.toLowerCase())) blockCompany(company);
+  }
+  for (const company of before.bannedCompanies) {
+    if (!afterBanned.has(company.toLowerCase())) unblockCompany(company);
+  }
+
+  replaceTerms("title_include_terms", settings.includeTerms);
+  replaceTerms("title_exclude_terms", settings.excludeTerms);
+}
+
+export function listTargetJobTitles(): string[] {
+  return listTerms("target_job_titles");
+}
+
+export function saveTargetJobTitles(terms: string[]): void {
+  replaceTerms("target_job_titles", terms);
 }

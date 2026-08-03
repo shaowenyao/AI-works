@@ -65,9 +65,40 @@
       .btn-danger:hover:not(:disabled) {
         background: #fdf1f0;
       }
-      #scan-btn {
+      .settings-wrap {
+        position: relative;
+      }
+      #settings-gear-btn {
+        padding: 0.5rem;
         border-radius: 999px;
-        padding: 0.5rem 1.1rem;
+      }
+      .settings-menu {
+        position: absolute;
+        top: calc(100% + 0.4rem);
+        right: 0;
+        min-width: 180px;
+        background: #fff;
+        border: 1px solid #eceef0;
+        border-radius: 10px;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+        padding: 0.4rem;
+        z-index: 20;
+      }
+      .settings-menu[hidden] {
+        display: none;
+      }
+      .settings-menu button {
+        display: flex;
+        width: 100%;
+        border: none;
+        background: none;
+        padding: 0.55rem 0.6rem;
+        border-radius: 6px;
+        font-size: 0.85rem;
+        text-align: left;
+      }
+      .settings-menu button:hover {
+        background: #f2f2f2;
       }
       .card {
         background: #fff;
@@ -446,6 +477,223 @@
         color: #1a1a1a;
         border-bottom-color: #1a1a1a;
       }
+      .drawer-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.3);
+        z-index: 30;
+      }
+      .drawer-overlay[hidden] {
+        display: none;
+      }
+      .drawer {
+        position: fixed;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        width: 420px;
+        max-width: calc(100vw - 2rem);
+        background: #fff;
+        box-shadow: -8px 0 24px rgba(0, 0, 0, 0.15);
+        display: flex;
+        flex-direction: column;
+        animation: drawer-in 0.18s ease-out;
+      }
+      @keyframes drawer-in {
+        from {
+          transform: translateX(100%);
+        }
+        to {
+          transform: translateX(0);
+        }
+      }
+      .drawer-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 1.1rem 1.25rem;
+        border-bottom: 1px solid #eceef0;
+      }
+      .drawer-header h2 {
+        margin: 0;
+        font-size: 1.05rem;
+      }
+      .drawer-close-btn {
+        border: none;
+        background: none;
+        padding: 0.3rem;
+        border-radius: 6px;
+      }
+      .drawer-tabs {
+        display: flex;
+        gap: 1.25rem;
+        padding: 0 1.25rem;
+        border-bottom: 1px solid #eceef0;
+      }
+      .drawer-tab-btn {
+        border: none;
+        background: none;
+        border-radius: 0;
+        padding: 0.7rem 0.1rem;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: #8a8f98;
+        border-bottom: 2px solid transparent;
+        margin-bottom: -1px;
+      }
+      .drawer-tab-btn:hover:not(:disabled) {
+        background: none;
+        color: #1a1a1a;
+      }
+      .drawer-tab-btn.active {
+        color: #1a1a1a;
+        border-bottom-color: #1a1a1a;
+      }
+      .drawer-body {
+        flex: 1;
+        overflow-y: auto;
+        padding: 1.1rem 1.25rem;
+      }
+      .drawer-pane[hidden] {
+        display: none;
+      }
+      .term-section {
+        margin-bottom: 1.4rem;
+      }
+      .term-section-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 0.6rem;
+      }
+      .term-section-header h3 {
+        margin: 0;
+        font-size: 0.85rem;
+        color: #444;
+      }
+      .term-add-btn {
+        width: 1.8rem;
+        height: 1.8rem;
+        padding: 0;
+        border-radius: 999px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 1rem;
+        line-height: 1;
+        color: #fff;
+        border: none;
+      }
+      .term-add-btn.add-color {
+        background: #1a7f37;
+      }
+      .term-add-btn.add-color:hover {
+        background: #146c2e;
+      }
+      .term-add-btn.ban-color {
+        background: #b3261e;
+      }
+      .term-add-btn.ban-color:hover {
+        background: #94201a;
+      }
+      .term-input-row {
+        display: flex;
+        gap: 0.4rem;
+        margin-bottom: 0.6rem;
+      }
+      .term-input-row[hidden] {
+        display: none;
+      }
+      .term-input-row input {
+        flex: 1;
+        border: 1px solid #d8dbdf;
+        border-radius: 8px;
+        padding: 0.4rem 0.6rem;
+        font-size: 0.82rem;
+      }
+      .term-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+      }
+      .term-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        border-radius: 999px;
+        padding: 0.3rem 0.4rem 0.3rem 0.7rem;
+        font-size: 0.8rem;
+      }
+      .term-chip.add-color {
+        background: #e7f5ea;
+        color: #146c2e;
+      }
+      .term-chip.ban-color {
+        background: #fdf1f0;
+        color: #94201a;
+      }
+      .term-chip-remove {
+        border: none;
+        background: none;
+        padding: 0.15rem;
+        border-radius: 999px;
+        display: inline-flex;
+        color: inherit;
+      }
+      .term-chip-remove:hover {
+        background: rgba(0, 0, 0, 0.08);
+      }
+      .term-empty {
+        font-size: 0.78rem;
+        color: #9aa0a8;
+      }
+      .settings-section-title {
+        margin: 0 0 0.6rem;
+        font-size: 0.85rem;
+        color: #444;
+      }
+      .resume-current-row {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 0.7rem;
+        background: #f5f6f7;
+        border-radius: 8px;
+        font-size: 0.82rem;
+        margin-bottom: 0.6rem;
+      }
+      .resume-current-row[hidden] {
+        display: none;
+      }
+      .resume-current-row a {
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      #resume-remove-btn {
+        color: #b3261e;
+        border-color: #f3c9c9;
+        padding: 0.3rem 0.6rem;
+        font-size: 0.78rem;
+      }
+      #resume-remove-btn:hover {
+        background: #fdf1f0;
+      }
+      #resume-file-input {
+        font-size: 0.8rem;
+        margin-bottom: 0.6rem;
+      }
+      .drawer-footer {
+        padding: 1rem 1.25rem;
+        border-top: 1px solid #eceef0;
+        display: flex;
+        justify-content: flex-end;
+      }
+      #job-settings-save-btn {
+        border-radius: 8px;
+      }
     </style>
   </head>
   <body>
@@ -458,12 +706,21 @@
         </button>
         <button id="undo-btn" title="Undo the last delete">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
-          Undo delete
+          Undo
         </button>
         <button id="scan-btn" class="btn-dark">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           Scan for new jobs
         </button>
+        <span class="settings-wrap">
+          <button id="settings-gear-btn" aria-label="Settings" aria-haspopup="true" aria-expanded="false">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          </button>
+          <div class="settings-menu" id="settings-menu" hidden role="menu">
+            <button id="job-settings-btn" role="menuitem">Job settings</button>
+            <button id="user-settings-btn" role="menuitem">User settings</button>
+          </div>
+        </span>
       </span>
     </h1>
     <div class="tabs">
@@ -519,6 +776,111 @@
         <div class="modal-actions">
           <button id="add-job-cancel-btn">Cancel</button>
           <button id="add-job-submit-btn" class="btn-dark">Import</button>
+        </div>
+      </div>
+    </div>
+    <div class="drawer-overlay" id="job-settings-overlay" hidden>
+      <div class="drawer" id="job-settings-drawer">
+        <div class="drawer-header">
+          <h2>Job settings</h2>
+          <button class="drawer-close-btn" id="job-settings-close-btn" aria-label="Close">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <div class="drawer-tabs">
+          <button class="drawer-tab-btn active" data-drawer-tab="companies">Companies</button>
+          <button class="drawer-tab-btn" data-drawer-tab="title">Job Title</button>
+        </div>
+        <div class="drawer-body">
+          <div class="drawer-pane" id="drawer-pane-companies">
+            <div class="term-section">
+              <div class="term-section-header">
+                <h3>Companies to add</h3>
+                <button class="term-add-btn add-color" data-list="priorityCompanies" aria-label="Add company">+</button>
+              </div>
+              <div class="term-input-row" data-input-for="priorityCompanies" hidden>
+                <input type="text" placeholder="Company name" data-input="priorityCompanies" />
+                <button class="btn-dark" data-confirm="priorityCompanies">Add</button>
+              </div>
+              <div class="term-list" data-list-el="priorityCompanies"></div>
+            </div>
+            <div class="term-section">
+              <div class="term-section-header">
+                <h3>Companies to ban</h3>
+                <button class="term-add-btn ban-color" data-list="bannedCompanies" aria-label="Ban company">+</button>
+              </div>
+              <div class="term-input-row" data-input-for="bannedCompanies" hidden>
+                <input type="text" placeholder="Company name" data-input="bannedCompanies" />
+                <button class="btn-dark" data-confirm="bannedCompanies">Add</button>
+              </div>
+              <div class="term-list" data-list-el="bannedCompanies"></div>
+            </div>
+          </div>
+          <div class="drawer-pane" id="drawer-pane-title" hidden>
+            <div class="term-section">
+              <div class="term-section-header">
+                <h3>Title terms to add</h3>
+                <button class="term-add-btn add-color" data-list="includeTerms" aria-label="Add term">+</button>
+              </div>
+              <div class="term-input-row" data-input-for="includeTerms" hidden>
+                <input type="text" placeholder="e.g. Brand Designer" data-input="includeTerms" />
+                <button class="btn-dark" data-confirm="includeTerms">Add</button>
+              </div>
+              <div class="term-list" data-list-el="includeTerms"></div>
+            </div>
+            <div class="term-section">
+              <div class="term-section-header">
+                <h3>Title terms to ban</h3>
+                <button class="term-add-btn ban-color" data-list="excludeTerms" aria-label="Ban term">+</button>
+              </div>
+              <div class="term-input-row" data-input-for="excludeTerms" hidden>
+                <input type="text" placeholder="e.g. Recruiter" data-input="excludeTerms" />
+                <button class="btn-dark" data-confirm="excludeTerms">Add</button>
+              </div>
+              <div class="term-list" data-list-el="excludeTerms"></div>
+            </div>
+          </div>
+        </div>
+        <div class="drawer-footer">
+          <button class="btn-dark" id="job-settings-save-btn">Save</button>
+        </div>
+      </div>
+    </div>
+    <div class="drawer-overlay" id="user-settings-overlay" hidden>
+      <div class="drawer" id="user-settings-drawer">
+        <div class="drawer-header">
+          <h2>User settings</h2>
+          <button class="drawer-close-btn" id="user-settings-close-btn" aria-label="Close">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <div class="drawer-body">
+          <div class="term-section">
+            <div class="term-section-header">
+              <h3>Job titles you want</h3>
+              <button class="term-add-btn add-color" id="user-job-titles-add-btn" aria-label="Add job title">+</button>
+            </div>
+            <div class="term-input-row" id="user-job-titles-input-row" hidden>
+              <input type="text" placeholder="e.g. Product Designer" id="user-job-titles-input" />
+              <button class="btn-dark" id="user-job-titles-confirm-btn">Add</button>
+            </div>
+            <div class="term-list" id="user-job-titles-list"></div>
+          </div>
+          <div class="term-section">
+            <h3 class="settings-section-title">Resume</h3>
+            <div class="resume-current-row" id="resume-current-row" hidden>
+              <a id="resume-current-link" href="#" target="_blank"></a>
+              <button id="resume-remove-btn">Remove</button>
+            </div>
+            <input type="file" id="resume-file-input" accept=".pdf,.doc,.docx" />
+            <div>
+              <button class="btn-dark" id="resume-upload-btn">Upload</button>
+            </div>
+            <p class="modal-error" id="resume-error" hidden></p>
+          </div>
+        </div>
+        <div class="drawer-footer">
+          <button class="btn-dark" id="user-job-titles-save-btn">Save</button>
         </div>
       </div>
     </div>

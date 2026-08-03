@@ -30,6 +30,28 @@ const addJobUrlInput = document.getElementById("add-job-url-input");
 const addJobError = document.getElementById("add-job-error");
 const addJobCancelBtn = document.getElementById("add-job-cancel-btn");
 const addJobSubmitBtn = document.getElementById("add-job-submit-btn");
+const settingsGearBtn = document.getElementById("settings-gear-btn");
+const settingsMenu = document.getElementById("settings-menu");
+const jobSettingsBtn = document.getElementById("job-settings-btn");
+const userSettingsBtn = document.getElementById("user-settings-btn");
+const jobSettingsOverlay = document.getElementById("job-settings-overlay");
+const jobSettingsCloseBtn = document.getElementById("job-settings-close-btn");
+const jobSettingsSaveBtn = document.getElementById("job-settings-save-btn");
+const drawerTabButtons = document.querySelectorAll(".drawer-tab-btn");
+const userSettingsOverlay = document.getElementById("user-settings-overlay");
+const userSettingsCloseBtn = document.getElementById("user-settings-close-btn");
+const userJobTitlesAddBtn = document.getElementById("user-job-titles-add-btn");
+const userJobTitlesInputRow = document.getElementById("user-job-titles-input-row");
+const userJobTitlesInput = document.getElementById("user-job-titles-input");
+const userJobTitlesConfirmBtn = document.getElementById("user-job-titles-confirm-btn");
+const userJobTitlesList = document.getElementById("user-job-titles-list");
+const userJobTitlesSaveBtn = document.getElementById("user-job-titles-save-btn");
+const resumeCurrentRow = document.getElementById("resume-current-row");
+const resumeCurrentLink = document.getElementById("resume-current-link");
+const resumeRemoveBtn = document.getElementById("resume-remove-btn");
+const resumeFileInput = document.getElementById("resume-file-input");
+const resumeUploadBtn = document.getElementById("resume-upload-btn");
+const resumeError = document.getElementById("resume-error");
 let currentTab = "current";
 // The job.id most recently added via URL import — pinned above the usual
 // priority/favorite sort in renderJobs() so it's guaranteed visible at the
@@ -282,29 +304,24 @@ function jobCard(job) {
 
 let allJobs = [];
 
-// Excludes senior-tier titles unconditionally — no UI toggle for this
-// (there used to be a "Senior positions" checkbox; it's gone, and so is
-// showing these at all). "senior"/"staff"/"principal" catches the modifier
-// wherever it appears in the title (Senior Brand Designer, Staff Product
-// Designer, etc.); the "sr." check catches the abbreviated form separately
-// since it's not spelled out as a whole word.
-function isSeniorTitle(job) {
-  const title = job.title;
-  return /\b(senior|staff|principal)\b/i.test(title) || /^sr\.?\s/i.test(title);
-}
-
 function renderJobs() {
   const query = searchQueries[currentTab].trim().toLowerCase();
 
   // Any job added via URL import (job.manually_imported, persisted — not
   // just the one from this page session) is exempt from every content
-  // filter below (location, design-title, seniority, search): the user
-  // explicitly chose to add that exact posting, so it should always stay
-  // visible, full stop, regardless of what it's about, how it's worded, or
-  // how much later this page gets reloaded. Only matchesTab still applies.
-  // Separately, the most recently imported one (justImportedJobId, session-
-  // only) also gets pinned to the very top of New Jobs — see the sort
-  // below — as immediate feedback right after adding it.
+  // filter below (location, design-title, search): the user explicitly
+  // chose to add that exact posting, so it should always stay visible, full
+  // stop, regardless of what it's about, how it's worded, or how much later
+  // this page gets reloaded. Only matchesTab still applies. Separately, the
+  // most recently imported one (justImportedJobId, session-only) also gets
+  // pinned to the very top of New Jobs — see the sort below — as immediate
+  // feedback right after adding it. Note isDesignTitle here is a second,
+  // redundant pass over what the server already filtered — kept only
+  // because search/location filtering happens client-side too and this
+  // keeps the combined logic in one place; the server's own copy (plus its
+  // includeTerms/excludeTerms from Job Settings, which have no client-side
+  // equivalent) is what actually keeps non-design/senior/etc. titles out of
+  // allJobs in the first place.
   const jobs = allJobs
     .filter(matchesTab)
     .filter(
@@ -313,7 +330,6 @@ function renderJobs() {
         (locationFilter.value === "remote" ? isRemoteJob(job) : isLocalJob(job)),
     )
     .filter((job) => job.manually_imported || isDesignTitle(job))
-    .filter((job) => job.manually_imported || !isSeniorTitle(job))
     .filter(
       (job) =>
         job.manually_imported ||
@@ -611,6 +627,316 @@ dummyBtn.addEventListener("click", async () => {
 
 addJobCancelBtn.addEventListener("click", () => {
   addJobModal.hidden = true;
+});
+
+// The gear menu by "Scan for new jobs" — Facebook-style dropdown, closes on
+// an outside click, Escape, or picking an item. "User settings" doesn't go
+// anywhere yet; "Job settings" opens the slide-out drawer below.
+function closeSettingsMenu() {
+  settingsMenu.hidden = true;
+  settingsGearBtn.setAttribute("aria-expanded", "false");
+}
+
+settingsGearBtn.addEventListener("click", (e) => {
+  e.stopPropagation();
+  const willOpen = settingsMenu.hidden;
+  settingsMenu.hidden = !willOpen;
+  settingsGearBtn.setAttribute("aria-expanded", String(willOpen));
+});
+
+document.addEventListener("click", (e) => {
+  if (!settingsMenu.hidden && !e.target.closest(".settings-wrap")) closeSettingsMenu();
+});
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && !settingsMenu.hidden) closeSettingsMenu();
+});
+
+// --- Job Settings drawer ---------------------------------------------
+
+// The in-progress edit — loaded fresh from the server each time the drawer
+// opens, only written back on Save (so closing without saving discards it).
+let jobSettingsDraft = { priorityCompanies: [], bannedCompanies: [], includeTerms: [], excludeTerms: [] };
+
+function renderTermList(key) {
+  const container = document.querySelector(`[data-list-el="${key}"]`);
+  const isBanList = key === "bannedCompanies" || key === "excludeTerms";
+  const items = jobSettingsDraft[key];
+  if (items.length === 0) {
+    container.innerHTML = `<span class="term-empty">None yet</span>`;
+    return;
+  }
+  container.innerHTML = items
+    .map(
+      (item) => `
+        <span class="term-chip ${isBanList ? "ban-color" : "add-color"}">
+          ${escapeHtml(item)}
+          <button class="term-chip-remove" data-remove="${key}" data-value="${escapeHtml(item)}" aria-label="Remove ${escapeHtml(item)}">${icons.x}</button>
+        </span>
+      `,
+    )
+    .join("");
+}
+
+function renderAllTermLists() {
+  ["priorityCompanies", "bannedCompanies", "includeTerms", "excludeTerms"].forEach(renderTermList);
+}
+
+async function openJobSettingsDrawer() {
+  closeSettingsMenu();
+  try {
+    jobSettingsDraft = await (await fetch("/api/jobs/job-settings")).json();
+  } catch (err) {
+    alert(`Failed to load job settings: ${err.message}`);
+    return;
+  }
+  renderAllTermLists();
+  jobSettingsOverlay.hidden = false;
+}
+
+function closeJobSettingsDrawer() {
+  jobSettingsOverlay.hidden = true;
+  document.querySelectorAll(".term-input-row").forEach((row) => {
+    row.hidden = true;
+  });
+}
+
+jobSettingsBtn.addEventListener("click", openJobSettingsDrawer);
+jobSettingsCloseBtn.addEventListener("click", closeJobSettingsDrawer);
+jobSettingsOverlay.addEventListener("click", (e) => {
+  if (e.target === jobSettingsOverlay) closeJobSettingsDrawer();
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && !jobSettingsOverlay.hidden) closeJobSettingsDrawer();
+});
+
+drawerTabButtons.forEach((btn) => {
+  btn.addEventListener("click", () => {
+    drawerTabButtons.forEach((b) => b.classList.toggle("active", b === btn));
+    document.getElementById("drawer-pane-companies").hidden = btn.dataset.drawerTab !== "companies";
+    document.getElementById("drawer-pane-title").hidden = btn.dataset.drawerTab !== "title";
+  });
+});
+
+document.querySelectorAll(".term-add-btn").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const key = btn.dataset.list;
+    const row = document.querySelector(`[data-input-for="${key}"]`);
+    row.hidden = !row.hidden;
+    if (!row.hidden) row.querySelector("input").focus();
+  });
+});
+
+function addTermFromInput(key) {
+  const input = document.querySelector(`[data-input="${key}"]`);
+  const value = input.value.trim();
+  if (!value) return;
+  const exists = jobSettingsDraft[key].some((v) => v.toLowerCase() === value.toLowerCase());
+  if (!exists) jobSettingsDraft[key].push(value);
+  input.value = "";
+  document.querySelector(`[data-input-for="${key}"]`).hidden = true;
+  renderTermList(key);
+}
+
+document.querySelectorAll("[data-confirm]").forEach((btn) => {
+  btn.addEventListener("click", () => addTermFromInput(btn.dataset.confirm));
+});
+
+document.querySelectorAll("[data-input]").forEach((input) => {
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      addTermFromInput(input.dataset.input);
+    }
+  });
+});
+
+document.querySelectorAll(".drawer-body").forEach((body) => {
+  body.addEventListener("click", (e) => {
+    const removeBtn = e.target.closest("[data-remove]");
+    if (!removeBtn) return;
+    const key = removeBtn.dataset.remove;
+    const value = removeBtn.dataset.value;
+    jobSettingsDraft[key] = jobSettingsDraft[key].filter((v) => v !== value);
+    renderTermList(key);
+  });
+});
+
+jobSettingsSaveBtn.addEventListener("click", async () => {
+  jobSettingsSaveBtn.disabled = true;
+  try {
+    const res = await fetch("/api/jobs/job-settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(jobSettingsDraft),
+    });
+    if (!res.ok) throw new Error((await res.json()).error ?? "Save failed.");
+    closeJobSettingsDrawer();
+    await loadJobs();
+  } catch (err) {
+    alert(`Failed to save job settings: ${err.message}`);
+  } finally {
+    jobSettingsSaveBtn.disabled = false;
+  }
+});
+
+// --- User Settings drawer ---------------------------------------------
+
+let userJobTitlesDraft = [];
+
+function renderUserJobTitlesList() {
+  if (userJobTitlesDraft.length === 0) {
+    userJobTitlesList.innerHTML = `<span class="term-empty">None yet</span>`;
+    return;
+  }
+  userJobTitlesList.innerHTML = userJobTitlesDraft
+    .map(
+      (item) => `
+        <span class="term-chip add-color">
+          ${escapeHtml(item)}
+          <button class="term-chip-remove" data-user-title-remove="${escapeHtml(item)}" aria-label="Remove ${escapeHtml(item)}">${icons.x}</button>
+        </span>
+      `,
+    )
+    .join("");
+}
+
+function renderResumeState(resumeFilename) {
+  if (resumeFilename) {
+    resumeCurrentLink.href = `/webapp-docs/${encodeURIComponent(resumeFilename)}`;
+    resumeCurrentLink.textContent = resumeFilename;
+    resumeCurrentRow.hidden = false;
+  } else {
+    resumeCurrentRow.hidden = true;
+  }
+}
+
+async function openUserSettingsDrawer() {
+  closeSettingsMenu();
+  resumeError.hidden = true;
+  resumeFileInput.value = "";
+  try {
+    const settings = await (await fetch("/api/user-settings")).json();
+    userJobTitlesDraft = settings.jobTitles;
+    renderUserJobTitlesList();
+    renderResumeState(settings.resumeFilename);
+  } catch (err) {
+    alert(`Failed to load user settings: ${err.message}`);
+    return;
+  }
+  userSettingsOverlay.hidden = false;
+}
+
+function closeUserSettingsDrawer() {
+  userSettingsOverlay.hidden = true;
+  userJobTitlesInputRow.hidden = true;
+}
+
+userSettingsBtn.addEventListener("click", openUserSettingsDrawer);
+userSettingsCloseBtn.addEventListener("click", closeUserSettingsDrawer);
+userSettingsOverlay.addEventListener("click", (e) => {
+  if (e.target === userSettingsOverlay) closeUserSettingsDrawer();
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && !userSettingsOverlay.hidden) closeUserSettingsDrawer();
+});
+
+userJobTitlesAddBtn.addEventListener("click", () => {
+  userJobTitlesInputRow.hidden = !userJobTitlesInputRow.hidden;
+  if (!userJobTitlesInputRow.hidden) userJobTitlesInput.focus();
+});
+
+function addUserJobTitle() {
+  const value = userJobTitlesInput.value.trim();
+  if (!value) return;
+  const exists = userJobTitlesDraft.some((v) => v.toLowerCase() === value.toLowerCase());
+  if (!exists) userJobTitlesDraft.push(value);
+  userJobTitlesInput.value = "";
+  userJobTitlesInputRow.hidden = true;
+  renderUserJobTitlesList();
+}
+
+userJobTitlesConfirmBtn.addEventListener("click", addUserJobTitle);
+userJobTitlesInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    addUserJobTitle();
+  }
+});
+
+userJobTitlesList.addEventListener("click", (e) => {
+  const removeBtn = e.target.closest("[data-user-title-remove]");
+  if (!removeBtn) return;
+  const value = removeBtn.dataset.userTitleRemove;
+  userJobTitlesDraft = userJobTitlesDraft.filter((v) => v !== value);
+  renderUserJobTitlesList();
+});
+
+userJobTitlesSaveBtn.addEventListener("click", async () => {
+  userJobTitlesSaveBtn.disabled = true;
+  try {
+    const res = await fetch("/api/user-settings/job-titles", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ jobTitles: userJobTitlesDraft }),
+    });
+    if (!res.ok) throw new Error((await res.json()).error ?? "Save failed.");
+    closeUserSettingsDrawer();
+  } catch (err) {
+    alert(`Failed to save job titles: ${err.message}`);
+  } finally {
+    userJobTitlesSaveBtn.disabled = false;
+  }
+});
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(",")[1]);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
+resumeUploadBtn.addEventListener("click", async () => {
+  const file = resumeFileInput.files[0];
+  if (!file) {
+    resumeError.textContent = "Choose a file first.";
+    resumeError.hidden = false;
+    return;
+  }
+  resumeUploadBtn.disabled = true;
+  resumeError.hidden = true;
+  try {
+    const dataBase64 = await fileToBase64(file);
+    const res = await fetch("/api/user-settings/resume", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ filename: file.name, dataBase64 }),
+    });
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.error ?? "Upload failed.");
+    renderResumeState(result.resumeFilename);
+    resumeFileInput.value = "";
+  } catch (err) {
+    resumeError.textContent = err.message;
+    resumeError.hidden = false;
+  } finally {
+    resumeUploadBtn.disabled = false;
+  }
+});
+
+resumeRemoveBtn.addEventListener("click", async () => {
+  if (!confirm("Remove the uploaded resume?")) return;
+  resumeRemoveBtn.disabled = true;
+  try {
+    await fetch("/api/user-settings/resume", { method: "DELETE" });
+    renderResumeState(null);
+  } catch (err) {
+    alert(`Failed to remove resume: ${err.message}`);
+  } finally {
+    resumeRemoveBtn.disabled = false;
+  }
 });
 
 addJobSubmitBtn.addEventListener("click", async () => {
