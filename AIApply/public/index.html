@@ -70,7 +70,6 @@
       }
       #settings-gear-btn {
         padding: 0.5rem;
-        border-radius: 999px;
       }
       .settings-menu {
         position: absolute;
@@ -387,7 +386,8 @@
         background-repeat: no-repeat;
         background-position: right 0.7rem center;
       }
-      #search-input {
+      #search-input,
+      #city-filter {
         border: 1px solid #d8dbdf;
         background: #fff;
         border-radius: 8px;
@@ -396,10 +396,12 @@
         color: #1a1a1a;
         width: 200px;
       }
-      #search-input::placeholder {
+      #search-input::placeholder,
+      #city-filter::placeholder {
         color: #b0b3b8;
       }
-      #search-input:focus {
+      #search-input:focus,
+      #city-filter:focus {
         outline: none;
         border-color: #9aa0a8;
       }
@@ -689,7 +691,16 @@
         padding: 1rem 1.25rem;
         border-top: 1px solid #eceef0;
         display: flex;
-        justify-content: flex-end;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+      }
+      .clear-all-check {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        font-size: 0.78rem;
+        color: #b3261e;
       }
       #job-settings-save-btn {
         border-radius: 8px;
@@ -736,6 +747,58 @@
           <option value="72">Last 3 days</option>
           <option value="168">Last 7 days</option>
         </select>
+        <input type="text" id="city-filter" list="city-suggestions" placeholder="City" autocomplete="off" />
+        <datalist id="city-suggestions">
+          <option value="San Francisco Bay Area"></option>
+          <option value="Greater New York City Area"></option>
+          <option value="Greater Los Angeles Area"></option>
+          <option value="Greater Chicago Area"></option>
+          <option value="Greater Boston Area"></option>
+          <option value="Washington DC-Baltimore Area"></option>
+          <option value="Greater Seattle Area"></option>
+          <option value="Dallas-Fort Worth Metroplex"></option>
+          <option value="Greater Houston Area"></option>
+          <option value="Greater Atlanta Area"></option>
+          <option value="Miami-Fort Lauderdale Area"></option>
+          <option value="Greater Philadelphia Area"></option>
+          <option value="Phoenix Metropolitan Area"></option>
+          <option value="Denver Metropolitan Area"></option>
+          <option value="Austin Metropolitan Area"></option>
+          <option value="San Diego Metropolitan Area"></option>
+          <option value="Portland Metropolitan Area"></option>
+          <option value="Minneapolis-Saint Paul Area"></option>
+          <option value="Greater London Area"></option>
+          <option value="Toronto Metropolitan Area"></option>
+          <option value="Vancouver Metropolitan Area"></option>
+          <option value="Paris Metropolitan Area"></option>
+          <option value="Berlin Metropolitan Area"></option>
+          <option value="Greater Tokyo Area"></option>
+          <option value="Singapore"></option>
+          <option value="Bengaluru Area"></option>
+          <option value="Sydney Metropolitan Area"></option>
+          <option value="San Francisco, CA"></option>
+          <option value="New York, NY"></option>
+          <option value="Seattle, WA"></option>
+          <option value="Los Angeles, CA"></option>
+          <option value="Austin, TX"></option>
+          <option value="Chicago, IL"></option>
+          <option value="Boston, MA"></option>
+          <option value="Denver, CO"></option>
+          <option value="Atlanta, GA"></option>
+          <option value="Miami, FL"></option>
+          <option value="Washington, DC"></option>
+          <option value="Portland, OR"></option>
+          <option value="San Diego, CA"></option>
+          <option value="Dallas, TX"></option>
+          <option value="Houston, TX"></option>
+          <option value="Phoenix, AZ"></option>
+          <option value="Philadelphia, PA"></option>
+          <option value="Minneapolis, MN"></option>
+          <option value="Nashville, TN"></option>
+          <option value="Salt Lake City, UT"></option>
+          <option value="San Jose, CA"></option>
+          <option value="Remote"></option>
+        </datalist>
         <select id="location-filter">
           <option value="remote">Remote</option>
           <option value="local">Local</option>
@@ -770,8 +833,8 @@
     <div class="modal-overlay" id="add-job-modal" hidden>
       <div class="modal">
         <h2>Add a job</h2>
-        <p class="modal-hint">Paste a direct posting URL from Greenhouse, Lever, SmartRecruiters, Ashby, or BambooHR (e.g. boards.greenhouse.io/..., jobs.lever.co/..., jobs.smartrecruiters.com/..., jobs.ashbyhq.com/..., or acme.bamboohr.com/careers/...). LinkedIn isn't supported.</p>
-        <input type="url" id="add-job-url-input" placeholder="https://boards.greenhouse.io/acme/jobs/1234567" />
+        <p class="modal-hint">Paste a direct posting URL from Greenhouse, Lever, SmartRecruiters, Ashby, or BambooHR. LinkedIn isn't supported.</p>
+        <input type="url" id="add-job-url-input" placeholder="Paste job posting URL" />
         <p class="modal-error" id="add-job-error" hidden></p>
         <div class="modal-actions">
           <button id="add-job-cancel-btn">Cancel</button>
@@ -842,6 +905,10 @@
           </div>
         </div>
         <div class="drawer-footer">
+          <label class="clear-all-check">
+            <input type="checkbox" id="job-settings-clear-all-check" />
+            Clear all existing job history
+          </label>
           <button class="btn-dark" id="job-settings-save-btn">Save</button>
         </div>
       </div>
@@ -880,6 +947,10 @@
           </div>
         </div>
         <div class="drawer-footer">
+          <label class="clear-all-check">
+            <input type="checkbox" id="user-settings-clear-all-check" />
+            Clear all existing job history
+          </label>
           <button class="btn-dark" id="user-job-titles-save-btn">Save</button>
         </div>
       </div>

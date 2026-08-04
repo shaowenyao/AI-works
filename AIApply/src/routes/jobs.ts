@@ -20,6 +20,7 @@ import {
   blockCompany,
   getJobSettings,
   saveJobSettings,
+  clearAllJobs,
 } from "../db/client.js";
 import type { JobRow, JobSettings } from "../db/client.js";
 import { scanJobs, resolvePriority } from "../jobs/scan.js";
@@ -61,7 +62,7 @@ jobsRouter.get("/job-settings", (_req, res) => {
   res.json(getJobSettings());
 });
 
-jobsRouter.post("/job-settings", (req, res) => {
+jobsRouter.post("/job-settings", async (req, res) => {
   const body = req.body ?? {};
   const asStringArray = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x) => typeof x === "string") : []);
   const settings: JobSettings = {
@@ -72,6 +73,17 @@ jobsRouter.post("/job-settings", (req, res) => {
   };
   try {
     saveJobSettings(settings);
+    // "Clear all existing job history" — a full, permanent wipe
+    // (including Applied/Hidden history), confirmed client-side before this
+    // request is even sent. Runs after settings are saved but before the
+    // scan below, so the fresh scan repopulates into an empty table.
+    if (body.clearAll === true) clearAllJobs();
+    // Changed criteria (a newly banned/priority company, a new title term)
+    // should be reflected against fresh postings right away, not just the
+    // ones already sitting in the DB — so every settings save re-runs the
+    // same scan as the "Scan for new jobs" button.
+    await scanJobs();
+    pruneOldArchivedJobs();
     res.json(getJobSettings());
   } catch (err) {
     res.status(500).json({ error: (err as Error).message });

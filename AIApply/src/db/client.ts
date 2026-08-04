@@ -119,8 +119,6 @@ export interface JobRow {
   priority: number;
   previous_status: string | null;
   dismissed_at: string | null;
-  /** 1 if this company has a company_verdicts row (i.e. was checked/set via the "Legit company" checkbox, as opposed to being auto-flagged from the static priority list). */
-  has_verdict: number;
   location: string | null;
   /** Computed via locationClassifier.isRemoteConfirmed() at scan time. */
   is_remote: number;
@@ -404,10 +402,8 @@ export function pruneOldArchivedJobs(): number {
 export function listJobs(): JobRow[] {
   return db
     .prepare(
-      `SELECT j.*, CASE WHEN v.company IS NULL THEN 0 ELSE 1 END AS has_verdict
-       FROM jobs j
-       LEFT JOIN company_verdicts v ON v.company = j.company COLLATE NOCASE
-       ORDER BY (j.url LIKE 'https://example.com/dummy-job/%') DESC, j.priority DESC, j.date_found DESC`,
+      `SELECT * FROM jobs
+       ORDER BY (url LIKE 'https://example.com/dummy-job/%') DESC, priority DESC, date_found DESC`,
     )
     .all() as unknown as JobRow[];
 }
@@ -531,6 +527,18 @@ export function unhideJob(id: number): JobRow | undefined {
  */
 export function excludeJob(id: number): void {
   db.prepare("UPDATE jobs SET status = 'excluded' WHERE id = ?").run(id);
+}
+
+/**
+ * The "Clear all existing job history" checkbox on Job/User Settings —
+ * a full, permanent wipe of every job row, including Applied and Hidden
+ * history, not just New Jobs. Unlike excludeJob/blockCompany this is a real
+ * DELETE, not a status change — there is no undo. Only ever called right
+ * before a fresh scan (see the settings save routes), so the table doesn't
+ * stay empty.
+ */
+export function clearAllJobs(): void {
+  db.exec("DELETE FROM jobs");
 }
 
 export function isCompanyBlocked(company: string): boolean {

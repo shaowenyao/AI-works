@@ -12,6 +12,7 @@ const undoBtn = document.getElementById("undo-btn");
 const dummyBtn = document.getElementById("dummy-btn");
 const dummyBtnLabel = document.getElementById("dummy-btn-label");
 const timeRangeFilter = document.getElementById("time-range-filter");
+const cityFilter = document.getElementById("city-filter");
 const locationFilter = document.getElementById("location-filter");
 const tabButtons = document.querySelectorAll(".tab-btn");
 const searchInput = document.getElementById("search-input");
@@ -37,6 +38,7 @@ const userSettingsBtn = document.getElementById("user-settings-btn");
 const jobSettingsOverlay = document.getElementById("job-settings-overlay");
 const jobSettingsCloseBtn = document.getElementById("job-settings-close-btn");
 const jobSettingsSaveBtn = document.getElementById("job-settings-save-btn");
+const jobSettingsClearAllCheck = document.getElementById("job-settings-clear-all-check");
 const drawerTabButtons = document.querySelectorAll(".drawer-tab-btn");
 const userSettingsOverlay = document.getElementById("user-settings-overlay");
 const userSettingsCloseBtn = document.getElementById("user-settings-close-btn");
@@ -46,6 +48,7 @@ const userJobTitlesInput = document.getElementById("user-job-titles-input");
 const userJobTitlesConfirmBtn = document.getElementById("user-job-titles-confirm-btn");
 const userJobTitlesList = document.getElementById("user-job-titles-list");
 const userJobTitlesSaveBtn = document.getElementById("user-job-titles-save-btn");
+const userSettingsClearAllCheck = document.getElementById("user-settings-clear-all-check");
 const resumeCurrentRow = document.getElementById("resume-current-row");
 const resumeCurrentLink = document.getElementById("resume-current-link");
 const resumeRemoveBtn = document.getElementById("resume-remove-btn");
@@ -140,6 +143,51 @@ function isLocalJob(job) {
   return Boolean(job.is_local_sf);
 }
 
+// Job postings almost never literally say "San Francisco Bay Area" in their
+// location text — they say "San Francisco, CA" or "Oakland, CA" or "Palo
+// Alto". A plain substring match against a LinkedIn-style metro-area label
+// would silently match nothing, so each grouped area here expands to the
+// city names that actually show up in scraped location text. Anything typed
+// that isn't a recognized metro label (e.g. a specific city typed by hand)
+// just falls back to a plain substring match in matchesCityFilter below.
+const METRO_AREA_ALIASES = {
+  "san francisco bay area": ["san francisco", "oakland", "san jose", "berkeley", "palo alto", "mountain view", "sunnyvale", "fremont", "bay area"],
+  "greater new york city area": ["new york", "brooklyn", "queens", "jersey city", "manhattan", "nyc"],
+  "greater los angeles area": ["los angeles", "santa monica", "pasadena", "long beach", "burbank"],
+  "greater chicago area": ["chicago", "evanston", "naperville"],
+  "greater boston area": ["boston", "cambridge", "somerville"],
+  "washington dc-baltimore area": ["washington", "baltimore", "arlington", "alexandria"],
+  "greater seattle area": ["seattle", "bellevue", "redmond", "tacoma"],
+  "dallas-fort worth metroplex": ["dallas", "fort worth", "plano", "irving"],
+  "greater houston area": ["houston", "sugar land", "the woodlands"],
+  "greater atlanta area": ["atlanta", "sandy springs", "alpharetta"],
+  "miami-fort lauderdale area": ["miami", "fort lauderdale", "boca raton"],
+  "greater philadelphia area": ["philadelphia", "camden"],
+  "phoenix metropolitan area": ["phoenix", "scottsdale", "tempe", "mesa"],
+  "denver metropolitan area": ["denver", "boulder", "aurora"],
+  "austin metropolitan area": ["austin", "round rock"],
+  "san diego metropolitan area": ["san diego", "carlsbad"],
+  "portland metropolitan area": ["portland"],
+  "minneapolis-saint paul area": ["minneapolis", "saint paul", "st. paul"],
+  "greater london area": ["london", "uk"],
+  "toronto metropolitan area": ["toronto", "ontario"],
+  "vancouver metropolitan area": ["vancouver", "british columbia"],
+  "paris metropolitan area": ["paris", "france"],
+  "berlin metropolitan area": ["berlin", "germany"],
+  "greater tokyo area": ["tokyo", "japan"],
+  "singapore": ["singapore"],
+  "bengaluru area": ["bengaluru", "bangalore", "india"],
+  "sydney metropolitan area": ["sydney", "australia"],
+};
+
+function matchesCityFilter(job, city) {
+  if (!city) return true;
+  const location = (job.location ?? "").toLowerCase();
+  const aliases = METRO_AREA_ALIASES[city];
+  if (aliases) return aliases.some((alias) => location.includes(alias));
+  return location.includes(city);
+}
+
 const icons = {
   external: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>`,
   eye: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/></svg>`,
@@ -212,18 +260,17 @@ function jobCard(job) {
     bamboohr: "BambooHR",
   };
   const sourceBadge = `<span class="source-badge">${escapeHtml(SOURCE_LABELS[job.source] ?? job.source)}</span>`;
-  const priorityBadge = job.priority ? `<span class="priority">Verify</span>` : "";
-  // Shown for any company that isn't auto-flagged from the static priority
-  // list (job.priority with no verdict behind it) or that you've already
-  // toggled yourself (has_verdict) — a manual way to mark a company as
-  // legitimate (or not), toggable either direction. Checking it saves
-  // immediately (see the legit-checkbox handler below), adding the company
-  // to the persistent verdicts list right away — independent of whether
-  // "Apply with AI prefill" ever gets clicked afterward. Only disappears
-  // once you've actually applied, since the legitimacy call stops mattering
-  // then.
-  const legitControl = (!job.priority || job.has_verdict) && !isApplied
-    ? `<label class="legit-check"><input type="checkbox" class="legit-checkbox" ${job.priority ? "checked" : ""} /> Verify Company</label>`
+  const priorityBadge = job.priority ? `<span class="priority">Verified</span>` : "";
+  // A manual way to mark a not-yet-verified company as legitimate — checking
+  // it saves immediately (see the legit-checkbox handler below), adding the
+  // company to Job Settings' "Companies to add" list right away, same as
+  // priority set any other way. Hidden once the company is already priority
+  // (redundant with the "Verify" badge above) or once you've actually
+  // applied, since the legitimacy call stops mattering then. To un-verify a
+  // company, remove it from Job Settings rather than toggling a per-card
+  // checkbox back off.
+  const legitControl = !job.priority && !isApplied
+    ? `<label class="legit-check"><input type="checkbox" class="legit-checkbox" /> Verify Company</label>`
     : "";
 
   // Set once, permanently, the moment "Optimize CV" is clicked (see
@@ -322,6 +369,7 @@ function renderJobs() {
   // includeTerms/excludeTerms from Job Settings, which have no client-side
   // equivalent) is what actually keeps non-design/senior/etc. titles out of
   // allJobs in the first place.
+  const city = cityFilter.value.trim().toLowerCase();
   const jobs = allJobs
     .filter(matchesTab)
     .filter(
@@ -329,6 +377,7 @@ function renderJobs() {
         job.manually_imported ||
         (locationFilter.value === "remote" ? isRemoteJob(job) : isLocalJob(job)),
     )
+    .filter((job) => job.manually_imported || matchesCityFilter(job, city))
     .filter((job) => job.manually_imported || isDesignTitle(job))
     .filter(
       (job) =>
@@ -684,6 +733,7 @@ function renderAllTermLists() {
 
 async function openJobSettingsDrawer() {
   closeSettingsMenu();
+  jobSettingsClearAllCheck.checked = false;
   try {
     jobSettingsDraft = await (await fetch("/api/jobs/job-settings")).json();
   } catch (err) {
@@ -763,20 +813,40 @@ document.querySelectorAll(".drawer-body").forEach((body) => {
 });
 
 jobSettingsSaveBtn.addEventListener("click", async () => {
+  const clearAll = jobSettingsClearAllCheck.checked;
+  if (
+    clearAll &&
+    !confirm(
+      "This will permanently delete ALL jobs — including your Applied and Hidden job history — before rescanning. This cannot be undone. Continue?",
+    )
+  ) {
+    return;
+  }
+
+  const originalHTML = jobSettingsSaveBtn.innerHTML;
   jobSettingsSaveBtn.disabled = true;
+  // Saving now also triggers a full rescan (see the server route) so
+  // changed criteria apply to fresh postings right away — that takes a lot
+  // longer than a plain save, so show it's actually working.
+  jobSettingsSaveBtn.innerHTML = `<span class="spinner"></span> Saving & scanning...`;
   try {
     const res = await fetch("/api/jobs/job-settings", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(jobSettingsDraft),
+      body: JSON.stringify({ ...jobSettingsDraft, clearAll }),
     });
     if (!res.ok) throw new Error((await res.json()).error ?? "Save failed.");
     closeJobSettingsDrawer();
+    landOnNewJobsTab();
     await loadJobs();
+    applyNoticeTextEl.textContent = "New jobs have been pulled based on your latest settings.";
+    applyNoticeEl.hidden = false;
+    window.scrollTo(0, 0);
   } catch (err) {
     alert(`Failed to save job settings: ${err.message}`);
   } finally {
     jobSettingsSaveBtn.disabled = false;
+    jobSettingsSaveBtn.innerHTML = originalHTML;
   }
 });
 
@@ -815,6 +885,7 @@ async function openUserSettingsDrawer() {
   closeSettingsMenu();
   resumeError.hidden = true;
   resumeFileInput.value = "";
+  userSettingsClearAllCheck.checked = false;
   try {
     const settings = await (await fetch("/api/user-settings")).json();
     userJobTitlesDraft = settings.jobTitles;
@@ -873,19 +944,39 @@ userJobTitlesList.addEventListener("click", (e) => {
 });
 
 userJobTitlesSaveBtn.addEventListener("click", async () => {
+  const clearAll = userSettingsClearAllCheck.checked;
+  if (
+    clearAll &&
+    !confirm(
+      "This will permanently delete ALL jobs — including your Applied and Hidden job history — before rescanning. This cannot be undone. Continue?",
+    )
+  ) {
+    return;
+  }
+
+  const originalHTML = userJobTitlesSaveBtn.innerHTML;
   userJobTitlesSaveBtn.disabled = true;
+  // Saving also triggers a full rescan (see the server route), same as Job
+  // Settings — show it's actually working, since that takes a while.
+  userJobTitlesSaveBtn.innerHTML = `<span class="spinner"></span> Saving & scanning...`;
   try {
     const res = await fetch("/api/user-settings/job-titles", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ jobTitles: userJobTitlesDraft }),
+      body: JSON.stringify({ jobTitles: userJobTitlesDraft, clearAll }),
     });
     if (!res.ok) throw new Error((await res.json()).error ?? "Save failed.");
     closeUserSettingsDrawer();
+    landOnNewJobsTab();
+    await loadJobs();
+    applyNoticeTextEl.textContent = "New jobs have been pulled based on your latest settings.";
+    applyNoticeEl.hidden = false;
+    window.scrollTo(0, 0);
   } catch (err) {
     alert(`Failed to save job titles: ${err.message}`);
   } finally {
     userJobTitlesSaveBtn.disabled = false;
+    userJobTitlesSaveBtn.innerHTML = originalHTML;
   }
 });
 
@@ -1014,6 +1105,10 @@ timeRangeFilter.addEventListener("change", () => {
   renderJobs();
 });
 locationFilter.addEventListener("change", () => {
+  currentPage = 1;
+  renderJobs();
+});
+cityFilter.addEventListener("input", () => {
   currentPage = 1;
   renderJobs();
 });

@@ -1,7 +1,8 @@
 import { Router } from "express";
 import { mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { listTargetJobTitles, saveTargetJobTitles } from "../db/client.js";
+import { listTargetJobTitles, saveTargetJobTitles, pruneOldArchivedJobs, clearAllJobs } from "../db/client.js";
+import { scanJobs } from "../jobs/scan.js";
 
 export const userSettingsRouter = Router();
 
@@ -28,12 +29,20 @@ userSettingsRouter.get("/", (_req, res) => {
   });
 });
 
-userSettingsRouter.post("/job-titles", (req, res) => {
+userSettingsRouter.post("/job-titles", async (req, res) => {
   const jobTitles = Array.isArray(req.body?.jobTitles)
     ? req.body.jobTitles.filter((t: unknown) => typeof t === "string")
     : [];
   try {
     saveTargetJobTitles(jobTitles);
+    // "Clear all existing job history" — a full, permanent wipe
+    // (including Applied/Hidden history), confirmed client-side before this
+    // request is even sent.
+    if (req.body?.clearAll === true) clearAllJobs();
+    // Same as saving Job Settings — re-run the full scan so a changed
+    // preference is reflected against fresh postings right away.
+    await scanJobs();
+    pruneOldArchivedJobs();
     res.json({ jobTitles: listTargetJobTitles() });
   } catch (err) {
     res.status(500).json({ error: (err as Error).message });
