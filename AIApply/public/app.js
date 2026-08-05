@@ -681,21 +681,20 @@ document.addEventListener("keydown", (e) => {
 // The in-progress edit — loaded fresh from the server each time the drawer
 // opens, only written back on Save (so closing without saving discards it).
 let jobSettingsDraft = { priorityCompanies: [], bannedCompanies: [], includeTerms: [], excludeTerms: [] };
-// Each Companies accordion (add/ban) has its own search box now, scoped to
-// just that list — with 126+ companies possible in "add" alone, finding
-// one by scrolling isn't practical, and a single shared search box made
-// searching one list hide unrelated matches in the other. Filters the
-// rendered chips only, never the underlying draft, so it can't accidentally
-// remove anything from what gets saved. Only set for the two company keys;
-// the Job Title tab's lists (includeTerms/excludeTerms) are short enough
-// not to need this.
-const companySearchQueries = { priorityCompanies: "", bannedCompanies: "" };
+// Every Job Settings accordion (Companies' add/ban, Job Title's
+// include/exclude) has its own search box, scoped to just that list — with
+// 126+ companies possible in "Included Companies" alone, finding one by
+// scrolling isn't practical, and a single shared search box made searching
+// one list hide unrelated matches in the others. Filters the rendered
+// chips only, never the underlying draft, so it can't accidentally remove
+// anything from what gets saved.
+const termSearchQueries = { priorityCompanies: "", bannedCompanies: "", includeTerms: "", excludeTerms: "" };
 
 function renderTermList(key) {
   const container = document.querySelector(`[data-list-el="${key}"]`);
   const isBanList = key === "bannedCompanies" || key === "excludeTerms";
   const allItems = jobSettingsDraft[key];
-  const query = companySearchQueries[key];
+  const query = termSearchQueries[key];
   const items = query ? allItems.filter((item) => item.toLowerCase().includes(query)) : allItems;
   if (allItems.length === 0) {
     container.innerHTML = `<span class="term-empty">None yet</span>`;
@@ -722,11 +721,11 @@ function updateTermCount(key) {
   if (countEl) countEl.textContent = `(${jobSettingsDraft[key].length})`;
 }
 
-// Companies to add/ban are collapsed by default every time the drawer
-// opens — with 100+ companies possible in "add" alone, showing both lists
-// expanded made the drawer unusably long. Search box and "+" add button
-// only make sense (and only show, since they're inside the same body) once
-// a section is actually open.
+// Every accordion is collapsed by default every time the drawer opens —
+// with 100+ companies possible in "Included Companies" alone, showing
+// every list expanded made the drawer unusably long. Search box and "+"
+// add button only make sense (and only show, since they're inside the same
+// body) once a section is actually open.
 function setSectionCollapsed(key, collapsed) {
   const toggle = document.querySelector(`[data-collapse-toggle="${key}"]`);
   const body = document.querySelector(`[data-accordion-body="${key}"]`);
@@ -743,10 +742,10 @@ document.querySelectorAll(".term-collapse-toggle").forEach((toggle) => {
   });
 });
 
-document.querySelectorAll("[data-company-search]").forEach((input) => {
+document.querySelectorAll("[data-term-search]").forEach((input) => {
   input.addEventListener("input", () => {
-    const key = input.dataset.companySearch;
-    companySearchQueries[key] = input.value.trim().toLowerCase();
+    const key = input.dataset.termSearch;
+    termSearchQueries[key] = input.value.trim().toLowerCase();
     renderTermList(key);
   });
 });
@@ -761,13 +760,13 @@ function renderAllTermLists() {
 async function openJobSettingsDrawer() {
   closeSettingsMenu();
   jobSettingsClearAllCheck.checked = false;
-  companySearchQueries.priorityCompanies = "";
-  companySearchQueries.bannedCompanies = "";
-  document.querySelectorAll("[data-company-search]").forEach((input) => {
+  ["priorityCompanies", "bannedCompanies", "includeTerms", "excludeTerms"].forEach((key) => {
+    termSearchQueries[key] = "";
+    setSectionCollapsed(key, true);
+  });
+  document.querySelectorAll("[data-term-search]").forEach((input) => {
     input.value = "";
   });
-  setSectionCollapsed("priorityCompanies", true);
-  setSectionCollapsed("bannedCompanies", true);
   try {
     jobSettingsDraft = await (await fetch("/api/jobs/job-settings")).json();
   } catch (err) {

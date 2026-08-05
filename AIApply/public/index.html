@@ -970,12 +970,12 @@
             <div class="term-accordion add-color">
               <button class="term-collapse-toggle" data-collapse-toggle="priorityCompanies" aria-expanded="false">
                 <svg class="term-collapse-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-                <h3>Companies to add</h3>
+                <h3>Included Companies</h3>
                 <span class="term-count" data-count="priorityCompanies"></span>
               </button>
               <div class="term-accordion-body" data-accordion-body="priorityCompanies" hidden>
                 <div class="term-section-toolbar">
-                  <input type="text" class="term-search-input" data-company-search="priorityCompanies" placeholder="Search companies to add" />
+                  <input type="text" class="term-search-input" data-term-search="priorityCompanies" placeholder="Search companies to add" />
                   <button class="term-add-btn add-color" data-list="priorityCompanies" aria-label="Add company">+</button>
                 </div>
                 <div class="term-input-row" data-input-for="priorityCompanies" hidden>
@@ -988,12 +988,12 @@
             <div class="term-accordion ban-color">
               <button class="term-collapse-toggle" data-collapse-toggle="bannedCompanies" aria-expanded="false">
                 <svg class="term-collapse-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-                <h3>Companies to ban</h3>
+                <h3>Excluded Companies</h3>
                 <span class="term-count" data-count="bannedCompanies"></span>
               </button>
               <div class="term-accordion-body" data-accordion-body="bannedCompanies" hidden>
                 <div class="term-section-toolbar">
-                  <input type="text" class="term-search-input" data-company-search="bannedCompanies" placeholder="Search companies to ban" />
+                  <input type="text" class="term-search-input" data-term-search="bannedCompanies" placeholder="Search companies to ban" />
                   <button class="term-add-btn ban-color" data-list="bannedCompanies" aria-label="Ban company">+</button>
                 </div>
                 <div class="term-input-row" data-input-for="bannedCompanies" hidden>
@@ -1005,27 +1005,41 @@
             </div>
           </div>
           <div class="drawer-pane" id="drawer-pane-title" hidden>
-            <div class="term-section">
-              <div class="term-section-header">
-                <h3>Title terms to add</h3>
-                <button class="term-add-btn add-color" data-list="includeTerms" aria-label="Add term">+</button>
+            <div class="term-accordion add-color">
+              <button class="term-collapse-toggle" data-collapse-toggle="includeTerms" aria-expanded="false">
+                <svg class="term-collapse-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                <h3>Included Title Terms</h3>
+                <span class="term-count" data-count="includeTerms"></span>
+              </button>
+              <div class="term-accordion-body" data-accordion-body="includeTerms" hidden>
+                <div class="term-section-toolbar">
+                  <input type="text" class="term-search-input" data-term-search="includeTerms" placeholder="Search included terms" />
+                  <button class="term-add-btn add-color" data-list="includeTerms" aria-label="Add term">+</button>
+                </div>
+                <div class="term-input-row" data-input-for="includeTerms" hidden>
+                  <input type="text" placeholder="e.g. Brand Designer" data-input="includeTerms" />
+                  <button class="btn-dark" data-confirm="includeTerms">Add</button>
+                </div>
+                <div class="term-list" data-list-el="includeTerms"></div>
               </div>
-              <div class="term-input-row" data-input-for="includeTerms" hidden>
-                <input type="text" placeholder="e.g. Brand Designer" data-input="includeTerms" />
-                <button class="btn-dark" data-confirm="includeTerms">Add</button>
-              </div>
-              <div class="term-list" data-list-el="includeTerms"></div>
             </div>
-            <div class="term-section">
-              <div class="term-section-header">
-                <h3>Title terms to ban</h3>
-                <button class="term-add-btn ban-color" data-list="excludeTerms" aria-label="Ban term">+</button>
+            <div class="term-accordion ban-color">
+              <button class="term-collapse-toggle" data-collapse-toggle="excludeTerms" aria-expanded="false">
+                <svg class="term-collapse-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                <h3>Excluded Title Terms</h3>
+                <span class="term-count" data-count="excludeTerms"></span>
+              </button>
+              <div class="term-accordion-body" data-accordion-body="excludeTerms" hidden>
+                <div class="term-section-toolbar">
+                  <input type="text" class="term-search-input" data-term-search="excludeTerms" placeholder="Search excluded terms" />
+                  <button class="term-add-btn ban-color" data-list="excludeTerms" aria-label="Ban term">+</button>
+                </div>
+                <div class="term-input-row" data-input-for="excludeTerms" hidden>
+                  <input type="text" placeholder="e.g. Recruiter" data-input="excludeTerms" />
+                  <button class="btn-dark" data-confirm="excludeTerms">Add</button>
+                </div>
+                <div class="term-list" data-list-el="excludeTerms"></div>
               </div>
-              <div class="term-input-row" data-input-for="excludeTerms" hidden>
-                <input type="text" placeholder="e.g. Recruiter" data-input="excludeTerms" />
-                <button class="btn-dark" data-confirm="excludeTerms">Add</button>
-              </div>
-              <div class="term-list" data-list-el="excludeTerms"></div>
             </div>
           </div>
         </div>
