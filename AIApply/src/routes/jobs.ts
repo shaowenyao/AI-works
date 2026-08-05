@@ -21,11 +21,12 @@ import {
   getJobSettings,
   saveJobSettings,
   clearAllJobs,
+  getScanLocation,
 } from "../db/client.js";
 import type { JobRow, JobSettings } from "../db/client.js";
 import { scanJobs, resolvePriority } from "../jobs/scan.js";
 import { isRemoteConfirmed, isLocalToSf } from "../jobs/locationClassifier.js";
-import { isDesignTitle } from "../../public/shared/jobFilters.js";
+import { isDesignTitle, matchesCityFilter } from "../../public/shared/jobFilters.js";
 
 export const jobsRouter = Router();
 
@@ -39,19 +40,27 @@ function matchesAnyTerm(title: string, terms: string[]): boolean {
 // scanner pulls every posting from each tracked company, and most aren't
 // design roles at all. The Job Settings panel's Job Title tab adds two more
 // layers on top: includeTerms lets a title through even if isDesignTitle
-// rejects it, excludeTerms hides one even if it passed. manually_imported
-// jobs (added by exact URL via POST /import) are exempt from all three —
-// the user explicitly chose that one posting, so it should always show
-// regardless of title. Excluded jobs (see excludeJob/blockCompany) are
-// filtered out here too — the row stays in the DB (so a rescan can't
-// resurrect it), it just never reaches the client at all, in any tab.
+// rejects it, excludeTerms hides one even if it passed. User Settings' scan
+// location (city + radius) is enforced here too, same approximate matching
+// as the New Jobs tab's own City/radius filter (see matchesCityFilter) —
+// unlike that one, this is a persistent, server-side restriction that
+// applies everywhere, not just while New Jobs happens to have it typed in.
+// manually_imported jobs (added by exact URL via POST /import) are exempt
+// from all of the above — the user explicitly chose that one posting, so it
+// should always show regardless of title or location. Excluded jobs (see
+// excludeJob/blockCompany) are filtered out here too — the row stays in the
+// DB (so a rescan can't resurrect it), it just never reaches the client at
+// all, in any tab.
 jobsRouter.get("/", (_req, res) => {
   pruneOldArchivedJobs();
   const { includeTerms, excludeTerms } = getJobSettings();
+  const { city, radiusMiles } = getScanLocation();
+  const lowerCity = city.trim().toLowerCase();
   res.json(
     hideDuplicates(listJobs())
       .filter((job) => job.manually_imported || isDesignTitle(job) || matchesAnyTerm(job.title, includeTerms))
       .filter((job) => job.manually_imported || !matchesAnyTerm(job.title, excludeTerms))
+      .filter((job) => job.manually_imported || matchesCityFilter(job.location, lowerCity, radiusMiles))
       .filter((job) => job.status !== "excluded"),
   );
 });

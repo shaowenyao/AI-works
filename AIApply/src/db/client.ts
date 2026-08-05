@@ -631,7 +631,7 @@ export function listUncheckedCompanies(): string[] {
   return rows.map((r) => r.company);
 }
 
-type TermTable = "title_include_terms" | "title_exclude_terms" | "target_job_titles";
+type TermTable = "title_include_terms" | "title_exclude_terms";
 
 function listTerms(table: TermTable): string[] {
   const rows = db.prepare(`SELECT term FROM ${table} ORDER BY term COLLATE NOCASE ASC`).all() as {
@@ -698,10 +698,22 @@ export function saveJobSettings(settings: JobSettings): void {
   replaceTerms("title_exclude_terms", settings.excludeTerms);
 }
 
-export function listTargetJobTitles(): string[] {
-  return listTerms("target_job_titles");
+export interface ScanLocation {
+  city: string;
+  radiusMiles: number;
 }
 
-export function saveTargetJobTitles(terms: string[]): void {
-  replaceTerms("target_job_titles", terms);
+/** User Settings' scan location — always returns a row (defaults to no restriction: empty city, 0 radius). */
+export function getScanLocation(): ScanLocation {
+  const row = db.prepare("SELECT city, radius_miles FROM scan_location_setting WHERE id = 1").get() as
+    | { city: string; radius_miles: number }
+    | undefined;
+  return row ? { city: row.city, radiusMiles: row.radius_miles } : { city: "", radiusMiles: 0 };
+}
+
+export function saveScanLocation(location: ScanLocation): void {
+  db.prepare(
+    `INSERT INTO scan_location_setting (id, city, radius_miles) VALUES (1, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET city = excluded.city, radius_miles = excluded.radius_miles`,
+  ).run(location.city.trim(), location.radiusMiles);
 }

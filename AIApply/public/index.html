@@ -193,6 +193,10 @@
         gap: 0.75rem;
         margin-left: auto;
       }
+      .job-location {
+        font-size: 0.8rem;
+        color: #8a8f98;
+      }
       .actions a {
         font-size: 0.85rem;
         color: #2563eb;
@@ -373,6 +377,8 @@
       }
       #time-range-filter,
       #location-filter,
+      #radius-filter,
+      #user-scan-radius-select,
       .pipeline-select {
         cursor: pointer;
         border: 1px solid #d8dbdf;
@@ -573,6 +579,82 @@
         font-size: 0.85rem;
         color: #444;
       }
+      .term-count {
+        font-size: 0.78rem;
+        color: #9aa0a8;
+      }
+      /* The Companies tab's two collapsible cards — bordered, rounded,
+         each with its own search box inside so searching one list never
+         hides matches in the other. .term-section (above) is still what
+         the plain, non-collapsible Job Title tab sections use. */
+      .term-accordion {
+        border: 1px solid #eceef0;
+        border-radius: 10px;
+        margin-bottom: 0.9rem;
+        overflow: hidden;
+        border-left: 3px solid transparent;
+      }
+      .term-accordion.add-color {
+        border-left-color: #1a7f37;
+      }
+      .term-accordion.ban-color {
+        border-left-color: #b3261e;
+      }
+      .term-accordion .term-collapse-toggle {
+        width: 100%;
+        border: none;
+        background: #fafbfb;
+        padding: 0.7rem 0.9rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        justify-content: flex-start;
+        border-radius: 0;
+      }
+      .term-accordion .term-collapse-toggle:hover {
+        background: #f2f3f4;
+      }
+      .term-accordion .term-collapse-toggle h3 {
+        margin: 0;
+        font-size: 0.85rem;
+        color: #1a1a1a;
+        font-weight: 600;
+      }
+      .term-collapse-chevron {
+        transition: transform 0.15s ease;
+        flex-shrink: 0;
+        color: #8a8f98;
+      }
+      .term-collapse-toggle[aria-expanded="true"] .term-collapse-chevron {
+        transform: rotate(90deg);
+      }
+      .term-accordion-body {
+        padding: 0.9rem;
+        border-top: 1px solid #eceef0;
+      }
+      .term-accordion-body[hidden] {
+        display: none;
+      }
+      .term-section-toolbar {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 0.7rem;
+      }
+      .term-search-input {
+        flex: 1;
+        border: 1px solid #d8dbdf;
+        border-radius: 8px;
+        padding: 0.4rem 0.7rem;
+        font-size: 0.82rem;
+        color: #1a1a1a;
+      }
+      .term-search-input:focus {
+        outline: none;
+        border-color: #9aa0a8;
+      }
+      .term-section-toolbar .term-add-btn {
+        flex-shrink: 0;
+      }
       .term-add-btn {
         width: 1.8rem;
         height: 1.8rem;
@@ -586,6 +668,9 @@
         line-height: 1;
         color: #fff;
         border: none;
+      }
+      .term-add-btn[hidden] {
+        display: none;
       }
       .term-add-btn.add-color {
         background: #1a7f37;
@@ -618,6 +703,9 @@
         display: flex;
         flex-wrap: wrap;
         gap: 0.4rem;
+      }
+      .term-list[hidden] {
+        display: none;
       }
       .term-chip {
         display: inline-flex;
@@ -654,6 +742,23 @@
         margin: 0 0 0.6rem;
         font-size: 0.85rem;
         color: #444;
+      }
+      .scan-location-row {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 0.9rem;
+      }
+      .scan-location-row input {
+        flex: 1;
+        border: 1px solid #d8dbdf;
+        border-radius: 8px;
+        padding: 0.45rem 0.9rem;
+        font-size: 0.85rem;
+        color: #1a1a1a;
+      }
+      .scan-location-row input:focus {
+        outline: none;
+        border-color: #9aa0a8;
       }
       .resume-current-row {
         display: flex;
@@ -799,6 +904,12 @@
           <option value="San Jose, CA"></option>
           <option value="Remote"></option>
         </datalist>
+        <select id="radius-filter" title="How far from the city above to include">
+          <option value="0">Exact match</option>
+          <option value="10">Within 10 mi</option>
+          <option value="25">Within 25 mi</option>
+          <option value="50">Within 50 mi</option>
+        </select>
         <select id="location-filter">
           <option value="remote">Remote</option>
           <option value="local">Local</option>
@@ -856,27 +967,41 @@
         </div>
         <div class="drawer-body">
           <div class="drawer-pane" id="drawer-pane-companies">
-            <div class="term-section">
-              <div class="term-section-header">
+            <div class="term-accordion add-color">
+              <button class="term-collapse-toggle" data-collapse-toggle="priorityCompanies" aria-expanded="false">
+                <svg class="term-collapse-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
                 <h3>Companies to add</h3>
-                <button class="term-add-btn add-color" data-list="priorityCompanies" aria-label="Add company">+</button>
+                <span class="term-count" data-count="priorityCompanies"></span>
+              </button>
+              <div class="term-accordion-body" data-accordion-body="priorityCompanies" hidden>
+                <div class="term-section-toolbar">
+                  <input type="text" class="term-search-input" data-company-search="priorityCompanies" placeholder="Search companies to add" />
+                  <button class="term-add-btn add-color" data-list="priorityCompanies" aria-label="Add company">+</button>
+                </div>
+                <div class="term-input-row" data-input-for="priorityCompanies" hidden>
+                  <input type="text" placeholder="Company name" data-input="priorityCompanies" />
+                  <button class="btn-dark" data-confirm="priorityCompanies">Add</button>
+                </div>
+                <div class="term-list" data-list-el="priorityCompanies"></div>
               </div>
-              <div class="term-input-row" data-input-for="priorityCompanies" hidden>
-                <input type="text" placeholder="Company name" data-input="priorityCompanies" />
-                <button class="btn-dark" data-confirm="priorityCompanies">Add</button>
-              </div>
-              <div class="term-list" data-list-el="priorityCompanies"></div>
             </div>
-            <div class="term-section">
-              <div class="term-section-header">
+            <div class="term-accordion ban-color">
+              <button class="term-collapse-toggle" data-collapse-toggle="bannedCompanies" aria-expanded="false">
+                <svg class="term-collapse-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
                 <h3>Companies to ban</h3>
-                <button class="term-add-btn ban-color" data-list="bannedCompanies" aria-label="Ban company">+</button>
+                <span class="term-count" data-count="bannedCompanies"></span>
+              </button>
+              <div class="term-accordion-body" data-accordion-body="bannedCompanies" hidden>
+                <div class="term-section-toolbar">
+                  <input type="text" class="term-search-input" data-company-search="bannedCompanies" placeholder="Search companies to ban" />
+                  <button class="term-add-btn ban-color" data-list="bannedCompanies" aria-label="Ban company">+</button>
+                </div>
+                <div class="term-input-row" data-input-for="bannedCompanies" hidden>
+                  <input type="text" placeholder="Company name" data-input="bannedCompanies" />
+                  <button class="btn-dark" data-confirm="bannedCompanies">Add</button>
+                </div>
+                <div class="term-list" data-list-el="bannedCompanies"></div>
               </div>
-              <div class="term-input-row" data-input-for="bannedCompanies" hidden>
-                <input type="text" placeholder="Company name" data-input="bannedCompanies" />
-                <button class="btn-dark" data-confirm="bannedCompanies">Add</button>
-              </div>
-              <div class="term-list" data-list-el="bannedCompanies"></div>
             </div>
           </div>
           <div class="drawer-pane" id="drawer-pane-title" hidden>
@@ -923,15 +1048,17 @@
         </div>
         <div class="drawer-body">
           <div class="term-section">
-            <div class="term-section-header">
-              <h3>Job titles you want</h3>
-              <button class="term-add-btn add-color" id="user-job-titles-add-btn" aria-label="Add job title">+</button>
+            <h3 class="settings-section-title">Scan location</h3>
+            <p class="modal-hint">Only jobs matching this city (and radius, if set) will ever be scanned or shown — leave the city blank for no restriction.</p>
+            <div class="scan-location-row">
+              <input type="text" id="user-scan-city-input" list="city-suggestions" placeholder="City" autocomplete="off" />
+              <select id="user-scan-radius-select" title="How far from the city above to include">
+                <option value="0">Exact match</option>
+                <option value="10">Within 10 mi</option>
+                <option value="25">Within 25 mi</option>
+                <option value="50">Within 50 mi</option>
+              </select>
             </div>
-            <div class="term-input-row" id="user-job-titles-input-row" hidden>
-              <input type="text" placeholder="e.g. Product Designer" id="user-job-titles-input" />
-              <button class="btn-dark" id="user-job-titles-confirm-btn">Add</button>
-            </div>
-            <div class="term-list" id="user-job-titles-list"></div>
           </div>
           <div class="term-section">
             <h3 class="settings-section-title">Resume</h3>
@@ -951,7 +1078,7 @@
             <input type="checkbox" id="user-settings-clear-all-check" />
             Clear all existing job history
           </label>
-          <button class="btn-dark" id="user-job-titles-save-btn">Save</button>
+          <button class="btn-dark" id="user-settings-save-btn">Save</button>
         </div>
       </div>
     </div>

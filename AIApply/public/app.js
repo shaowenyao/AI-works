@@ -1,4 +1,4 @@
-import { isDesignTitle } from "./shared/jobFilters.js";
+import { isDesignTitle, matchesCityFilter } from "./shared/jobFilters.js";
 
 // Mirrors PIPELINE_STAGES in src/db/client.ts — the server validates against
 // its own copy, so this only controls what the dropdown offers, not what's
@@ -13,6 +13,7 @@ const dummyBtn = document.getElementById("dummy-btn");
 const dummyBtnLabel = document.getElementById("dummy-btn-label");
 const timeRangeFilter = document.getElementById("time-range-filter");
 const cityFilter = document.getElementById("city-filter");
+const radiusFilter = document.getElementById("radius-filter");
 const locationFilter = document.getElementById("location-filter");
 const tabButtons = document.querySelectorAll(".tab-btn");
 const searchInput = document.getElementById("search-input");
@@ -42,12 +43,9 @@ const jobSettingsClearAllCheck = document.getElementById("job-settings-clear-all
 const drawerTabButtons = document.querySelectorAll(".drawer-tab-btn");
 const userSettingsOverlay = document.getElementById("user-settings-overlay");
 const userSettingsCloseBtn = document.getElementById("user-settings-close-btn");
-const userJobTitlesAddBtn = document.getElementById("user-job-titles-add-btn");
-const userJobTitlesInputRow = document.getElementById("user-job-titles-input-row");
-const userJobTitlesInput = document.getElementById("user-job-titles-input");
-const userJobTitlesConfirmBtn = document.getElementById("user-job-titles-confirm-btn");
-const userJobTitlesList = document.getElementById("user-job-titles-list");
-const userJobTitlesSaveBtn = document.getElementById("user-job-titles-save-btn");
+const userScanCityInput = document.getElementById("user-scan-city-input");
+const userScanRadiusSelect = document.getElementById("user-scan-radius-select");
+const userSettingsSaveBtn = document.getElementById("user-settings-save-btn");
 const userSettingsClearAllCheck = document.getElementById("user-settings-clear-all-check");
 const resumeCurrentRow = document.getElementById("resume-current-row");
 const resumeCurrentLink = document.getElementById("resume-current-link");
@@ -143,51 +141,6 @@ function isLocalJob(job) {
   return Boolean(job.is_local_sf);
 }
 
-// Job postings almost never literally say "San Francisco Bay Area" in their
-// location text — they say "San Francisco, CA" or "Oakland, CA" or "Palo
-// Alto". A plain substring match against a LinkedIn-style metro-area label
-// would silently match nothing, so each grouped area here expands to the
-// city names that actually show up in scraped location text. Anything typed
-// that isn't a recognized metro label (e.g. a specific city typed by hand)
-// just falls back to a plain substring match in matchesCityFilter below.
-const METRO_AREA_ALIASES = {
-  "san francisco bay area": ["san francisco", "oakland", "san jose", "berkeley", "palo alto", "mountain view", "sunnyvale", "fremont", "bay area"],
-  "greater new york city area": ["new york", "brooklyn", "queens", "jersey city", "manhattan", "nyc"],
-  "greater los angeles area": ["los angeles", "santa monica", "pasadena", "long beach", "burbank"],
-  "greater chicago area": ["chicago", "evanston", "naperville"],
-  "greater boston area": ["boston", "cambridge", "somerville"],
-  "washington dc-baltimore area": ["washington", "baltimore", "arlington", "alexandria"],
-  "greater seattle area": ["seattle", "bellevue", "redmond", "tacoma"],
-  "dallas-fort worth metroplex": ["dallas", "fort worth", "plano", "irving"],
-  "greater houston area": ["houston", "sugar land", "the woodlands"],
-  "greater atlanta area": ["atlanta", "sandy springs", "alpharetta"],
-  "miami-fort lauderdale area": ["miami", "fort lauderdale", "boca raton"],
-  "greater philadelphia area": ["philadelphia", "camden"],
-  "phoenix metropolitan area": ["phoenix", "scottsdale", "tempe", "mesa"],
-  "denver metropolitan area": ["denver", "boulder", "aurora"],
-  "austin metropolitan area": ["austin", "round rock"],
-  "san diego metropolitan area": ["san diego", "carlsbad"],
-  "portland metropolitan area": ["portland"],
-  "minneapolis-saint paul area": ["minneapolis", "saint paul", "st. paul"],
-  "greater london area": ["london", "uk"],
-  "toronto metropolitan area": ["toronto", "ontario"],
-  "vancouver metropolitan area": ["vancouver", "british columbia"],
-  "paris metropolitan area": ["paris", "france"],
-  "berlin metropolitan area": ["berlin", "germany"],
-  "greater tokyo area": ["tokyo", "japan"],
-  "singapore": ["singapore"],
-  "bengaluru area": ["bengaluru", "bangalore", "india"],
-  "sydney metropolitan area": ["sydney", "australia"],
-};
-
-function matchesCityFilter(job, city) {
-  if (!city) return true;
-  const location = (job.location ?? "").toLowerCase();
-  const aliases = METRO_AREA_ALIASES[city];
-  if (aliases) return aliases.some((alias) => location.includes(alias));
-  return location.includes(city);
-}
-
 const icons = {
   external: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>`,
   eye: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/></svg>`,
@@ -261,16 +214,16 @@ function jobCard(job) {
   };
   const sourceBadge = `<span class="source-badge">${escapeHtml(SOURCE_LABELS[job.source] ?? job.source)}</span>`;
   const priorityBadge = job.priority ? `<span class="priority">Verified</span>` : "";
-  // A manual way to mark a not-yet-verified company as legitimate — checking
-  // it saves immediately (see the legit-checkbox handler below), adding the
-  // company to Job Settings' "Companies to add" list right away, same as
-  // priority set any other way. Hidden once the company is already priority
-  // (redundant with the "Verify" badge above) or once you've actually
-  // applied, since the legitimacy call stops mattering then. To un-verify a
-  // company, remove it from Job Settings rather than toggling a per-card
-  // checkbox back off.
+  // A manual way to mark a not-yet-verified company as legitimate. Checking
+  // it does nothing on its own — the verdict only actually saves at the
+  // moment "Apply with AI prefill" is clicked (see that handler below).
+  // Checked state is tracked in pendingVerifiedJobIds, not just left on the
+  // DOM element, so it survives Generate Resume/Hide/favorite/etc. — all of
+  // which re-render this card from scratch. Hidden once the company is
+  // already priority (redundant with the "Verified" badge above) or once
+  // you've actually applied, since the legitimacy call stops mattering then.
   const legitControl = !job.priority && !isApplied
-    ? `<label class="legit-check"><input type="checkbox" class="legit-checkbox" /> Verify Company</label>`
+    ? `<label class="legit-check"><input type="checkbox" class="legit-checkbox" ${pendingVerifiedJobIds.has(job.id) ? "checked" : ""} /> Verify Company</label>`
     : "";
 
   // Set once, permanently, the moment "Optimize CV" is clicked (see
@@ -324,7 +277,11 @@ function jobCard(job) {
           ${badgeGroup}
         </div>
       </div>
-      <div class="meta">${isApplied && job.applied_date ? formatAppliedWhen(job.applied_date) : ""}</div>
+      <div class="meta">
+        ${[isApplied && job.applied_date ? formatAppliedWhen(job.applied_date) : "", isLocalJob(job) && job.location ? escapeHtml(job.location) : ""]
+          .filter(Boolean)
+          .join(" · ")}
+      </div>
       <div class="actions">
         ${generateControl}
         ${isApplied ? favoriteControl : ""}
@@ -350,6 +307,15 @@ function jobCard(job) {
 }
 
 let allJobs = [];
+// Job ids whose "Verify Company" checkbox is currently checked but not yet
+// saved (that only happens at apply-time — see the apply-btn handler).
+// Every other action on a card (Generate Resume, Hide, favoriting, etc.)
+// re-fetches and re-renders the whole card from scratch, which would wipe a
+// plain unattached checkbox back to unchecked — tracking it here instead of
+// relying on the DOM element's own state means jobCard() can always render
+// the box in whatever state the user actually left it in, regardless of how
+// many re-renders happen in between.
+const pendingVerifiedJobIds = new Set();
 
 function renderJobs() {
   const query = searchQueries[currentTab].trim().toLowerCase();
@@ -370,6 +336,7 @@ function renderJobs() {
   // equivalent) is what actually keeps non-design/senior/etc. titles out of
   // allJobs in the first place.
   const city = cityFilter.value.trim().toLowerCase();
+  const radiusMiles = Number(radiusFilter.value);
   const jobs = allJobs
     .filter(matchesTab)
     .filter(
@@ -377,7 +344,7 @@ function renderJobs() {
         job.manually_imported ||
         (locationFilter.value === "remote" ? isRemoteJob(job) : isLocalJob(job)),
     )
-    .filter((job) => job.manually_imported || matchesCityFilter(job, city))
+    .filter((job) => job.manually_imported || matchesCityFilter(job.location, city, radiusMiles))
     .filter((job) => job.manually_imported || isDesignTitle(job))
     .filter(
       (job) =>
@@ -521,10 +488,22 @@ function wireJobCardEvents() {
       window.open(url, "_blank", "noopener");
       if (demoMode) alert("Job applied");
 
+      // "Verify Company" (if present and checked) only actually saves right
+      // here, at the moment of applying — see the checkbox's own comment
+      // for why it does nothing on its own.
+      const verdictTask = pendingVerifiedJobIds.has(Number(id))
+        ? fetch(`/api/verdicts/${encodeURIComponent(company)}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ decent: true }),
+          })
+        : Promise.resolve();
+      pendingVerifiedJobIds.delete(Number(id));
+
       // Applying is now considered done the moment you click through —
       // moves the job straight to the Applied Jobs tab.
       try {
-        const task = fetch(`/api/jobs/${id}/mark-applied`, { method: "POST" });
+        const task = Promise.all([fetch(`/api/jobs/${id}/mark-applied`, { method: "POST" }), verdictTask]);
         await (useSpinner ? Promise.all([task, sleep(1000)]) : task);
         // Only New Jobs cards get this banner — Hidden Jobs also has an
         // apply-btn (for a not-yet-applied job that was hidden), and that
@@ -616,22 +595,18 @@ function wireJobCardEvents() {
       }
     });
 
-    const legitCheckbox = card.querySelector(".legit-checkbox");
-    legitCheckbox?.addEventListener("change", async (e) => {
-      const decent = e.target.checked;
-      e.target.disabled = true;
-      try {
-        await fetch(`/api/verdicts/${encodeURIComponent(company)}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ decent }),
-        });
-        await loadJobs();
-      } catch (err) {
-        alert(`Failed to save: ${err.message}`);
-        e.target.disabled = false;
-        e.target.checked = !decent;
-      }
+    // "Verify Company" doesn't fire anything on its own — checking it here
+    // is purely a local, unsaved intention (see pendingVerifiedJobIds). The
+    // verdict only actually gets recorded when "Apply with AI prefill" is
+    // clicked (see that handler below). Checking it and then never applying
+    // — or unchecking it again before applying — has no effect at all, by
+    // design. This listener's only job is remembering the checked state
+    // across re-renders (Generate Resume, Hide, favoriting, etc. all
+    // rebuild this card from scratch, which would otherwise silently wipe a
+    // plain checkbox back to unchecked).
+    card.querySelector(".legit-checkbox")?.addEventListener("change", (e) => {
+      if (e.target.checked) pendingVerifiedJobIds.add(Number(id));
+      else pendingVerifiedJobIds.delete(Number(id));
     });
   });
 }
@@ -706,13 +681,28 @@ document.addEventListener("keydown", (e) => {
 // The in-progress edit — loaded fresh from the server each time the drawer
 // opens, only written back on Save (so closing without saving discards it).
 let jobSettingsDraft = { priorityCompanies: [], bannedCompanies: [], includeTerms: [], excludeTerms: [] };
+// Each Companies accordion (add/ban) has its own search box now, scoped to
+// just that list — with 126+ companies possible in "add" alone, finding
+// one by scrolling isn't practical, and a single shared search box made
+// searching one list hide unrelated matches in the other. Filters the
+// rendered chips only, never the underlying draft, so it can't accidentally
+// remove anything from what gets saved. Only set for the two company keys;
+// the Job Title tab's lists (includeTerms/excludeTerms) are short enough
+// not to need this.
+const companySearchQueries = { priorityCompanies: "", bannedCompanies: "" };
 
 function renderTermList(key) {
   const container = document.querySelector(`[data-list-el="${key}"]`);
   const isBanList = key === "bannedCompanies" || key === "excludeTerms";
-  const items = jobSettingsDraft[key];
-  if (items.length === 0) {
+  const allItems = jobSettingsDraft[key];
+  const query = companySearchQueries[key];
+  const items = query ? allItems.filter((item) => item.toLowerCase().includes(query)) : allItems;
+  if (allItems.length === 0) {
     container.innerHTML = `<span class="term-empty">None yet</span>`;
+    return;
+  }
+  if (items.length === 0) {
+    container.innerHTML = `<span class="term-empty">No matches</span>`;
     return;
   }
   container.innerHTML = items
@@ -727,13 +717,57 @@ function renderTermList(key) {
     .join("");
 }
 
+function updateTermCount(key) {
+  const countEl = document.querySelector(`[data-count="${key}"]`);
+  if (countEl) countEl.textContent = `(${jobSettingsDraft[key].length})`;
+}
+
+// Companies to add/ban are collapsed by default every time the drawer
+// opens — with 100+ companies possible in "add" alone, showing both lists
+// expanded made the drawer unusably long. Search box and "+" add button
+// only make sense (and only show, since they're inside the same body) once
+// a section is actually open.
+function setSectionCollapsed(key, collapsed) {
+  const toggle = document.querySelector(`[data-collapse-toggle="${key}"]`);
+  const body = document.querySelector(`[data-accordion-body="${key}"]`);
+  toggle.setAttribute("aria-expanded", String(!collapsed));
+  body.hidden = collapsed;
+  if (collapsed) document.querySelector(`[data-input-for="${key}"]`).hidden = true;
+}
+
+document.querySelectorAll(".term-collapse-toggle").forEach((toggle) => {
+  toggle.addEventListener("click", () => {
+    const key = toggle.dataset.collapseToggle;
+    const isExpanded = toggle.getAttribute("aria-expanded") === "true";
+    setSectionCollapsed(key, isExpanded);
+  });
+});
+
+document.querySelectorAll("[data-company-search]").forEach((input) => {
+  input.addEventListener("input", () => {
+    const key = input.dataset.companySearch;
+    companySearchQueries[key] = input.value.trim().toLowerCase();
+    renderTermList(key);
+  });
+});
+
 function renderAllTermLists() {
-  ["priorityCompanies", "bannedCompanies", "includeTerms", "excludeTerms"].forEach(renderTermList);
+  ["priorityCompanies", "bannedCompanies", "includeTerms", "excludeTerms"].forEach((key) => {
+    renderTermList(key);
+    updateTermCount(key);
+  });
 }
 
 async function openJobSettingsDrawer() {
   closeSettingsMenu();
   jobSettingsClearAllCheck.checked = false;
+  companySearchQueries.priorityCompanies = "";
+  companySearchQueries.bannedCompanies = "";
+  document.querySelectorAll("[data-company-search]").forEach((input) => {
+    input.value = "";
+  });
+  setSectionCollapsed("priorityCompanies", true);
+  setSectionCollapsed("bannedCompanies", true);
   try {
     jobSettingsDraft = await (await fetch("/api/jobs/job-settings")).json();
   } catch (err) {
@@ -786,6 +820,7 @@ function addTermFromInput(key) {
   input.value = "";
   document.querySelector(`[data-input-for="${key}"]`).hidden = true;
   renderTermList(key);
+  updateTermCount(key);
 }
 
 document.querySelectorAll("[data-confirm]").forEach((btn) => {
@@ -809,6 +844,7 @@ document.querySelectorAll(".drawer-body").forEach((body) => {
     const value = removeBtn.dataset.value;
     jobSettingsDraft[key] = jobSettingsDraft[key].filter((v) => v !== value);
     renderTermList(key);
+    updateTermCount(key);
   });
 });
 
@@ -852,25 +888,6 @@ jobSettingsSaveBtn.addEventListener("click", async () => {
 
 // --- User Settings drawer ---------------------------------------------
 
-let userJobTitlesDraft = [];
-
-function renderUserJobTitlesList() {
-  if (userJobTitlesDraft.length === 0) {
-    userJobTitlesList.innerHTML = `<span class="term-empty">None yet</span>`;
-    return;
-  }
-  userJobTitlesList.innerHTML = userJobTitlesDraft
-    .map(
-      (item) => `
-        <span class="term-chip add-color">
-          ${escapeHtml(item)}
-          <button class="term-chip-remove" data-user-title-remove="${escapeHtml(item)}" aria-label="Remove ${escapeHtml(item)}">${icons.x}</button>
-        </span>
-      `,
-    )
-    .join("");
-}
-
 function renderResumeState(resumeFilename) {
   if (resumeFilename) {
     resumeCurrentLink.href = `/webapp-docs/${encodeURIComponent(resumeFilename)}`;
@@ -888,8 +905,8 @@ async function openUserSettingsDrawer() {
   userSettingsClearAllCheck.checked = false;
   try {
     const settings = await (await fetch("/api/user-settings")).json();
-    userJobTitlesDraft = settings.jobTitles;
-    renderUserJobTitlesList();
+    userScanCityInput.value = settings.scanLocation?.city ?? "";
+    userScanRadiusSelect.value = String(settings.scanLocation?.radiusMiles ?? 0);
     renderResumeState(settings.resumeFilename);
   } catch (err) {
     alert(`Failed to load user settings: ${err.message}`);
@@ -900,7 +917,6 @@ async function openUserSettingsDrawer() {
 
 function closeUserSettingsDrawer() {
   userSettingsOverlay.hidden = true;
-  userJobTitlesInputRow.hidden = true;
 }
 
 userSettingsBtn.addEventListener("click", openUserSettingsDrawer);
@@ -912,38 +928,7 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && !userSettingsOverlay.hidden) closeUserSettingsDrawer();
 });
 
-userJobTitlesAddBtn.addEventListener("click", () => {
-  userJobTitlesInputRow.hidden = !userJobTitlesInputRow.hidden;
-  if (!userJobTitlesInputRow.hidden) userJobTitlesInput.focus();
-});
-
-function addUserJobTitle() {
-  const value = userJobTitlesInput.value.trim();
-  if (!value) return;
-  const exists = userJobTitlesDraft.some((v) => v.toLowerCase() === value.toLowerCase());
-  if (!exists) userJobTitlesDraft.push(value);
-  userJobTitlesInput.value = "";
-  userJobTitlesInputRow.hidden = true;
-  renderUserJobTitlesList();
-}
-
-userJobTitlesConfirmBtn.addEventListener("click", addUserJobTitle);
-userJobTitlesInput.addEventListener("keydown", (e) => {
-  if (e.key === "Enter") {
-    e.preventDefault();
-    addUserJobTitle();
-  }
-});
-
-userJobTitlesList.addEventListener("click", (e) => {
-  const removeBtn = e.target.closest("[data-user-title-remove]");
-  if (!removeBtn) return;
-  const value = removeBtn.dataset.userTitleRemove;
-  userJobTitlesDraft = userJobTitlesDraft.filter((v) => v !== value);
-  renderUserJobTitlesList();
-});
-
-userJobTitlesSaveBtn.addEventListener("click", async () => {
+userSettingsSaveBtn.addEventListener("click", async () => {
   const clearAll = userSettingsClearAllCheck.checked;
   if (
     clearAll &&
@@ -954,16 +939,20 @@ userJobTitlesSaveBtn.addEventListener("click", async () => {
     return;
   }
 
-  const originalHTML = userJobTitlesSaveBtn.innerHTML;
-  userJobTitlesSaveBtn.disabled = true;
+  const originalHTML = userSettingsSaveBtn.innerHTML;
+  userSettingsSaveBtn.disabled = true;
   // Saving also triggers a full rescan (see the server route), same as Job
   // Settings — show it's actually working, since that takes a while.
-  userJobTitlesSaveBtn.innerHTML = `<span class="spinner"></span> Saving & scanning...`;
+  userSettingsSaveBtn.innerHTML = `<span class="spinner"></span> Saving & scanning...`;
   try {
-    const res = await fetch("/api/user-settings/job-titles", {
+    const res = await fetch("/api/user-settings/scan-location", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ jobTitles: userJobTitlesDraft, clearAll }),
+      body: JSON.stringify({
+        city: userScanCityInput.value.trim(),
+        radiusMiles: Number(userScanRadiusSelect.value),
+        clearAll,
+      }),
     });
     if (!res.ok) throw new Error((await res.json()).error ?? "Save failed.");
     closeUserSettingsDrawer();
@@ -973,10 +962,10 @@ userJobTitlesSaveBtn.addEventListener("click", async () => {
     applyNoticeEl.hidden = false;
     window.scrollTo(0, 0);
   } catch (err) {
-    alert(`Failed to save job titles: ${err.message}`);
+    alert(`Failed to save scan location: ${err.message}`);
   } finally {
-    userJobTitlesSaveBtn.disabled = false;
-    userJobTitlesSaveBtn.innerHTML = originalHTML;
+    userSettingsSaveBtn.disabled = false;
+    userSettingsSaveBtn.innerHTML = originalHTML;
   }
 });
 
@@ -1109,6 +1098,10 @@ locationFilter.addEventListener("change", () => {
   renderJobs();
 });
 cityFilter.addEventListener("input", () => {
+  currentPage = 1;
+  renderJobs();
+});
+radiusFilter.addEventListener("change", () => {
   currentPage = 1;
   renderJobs();
 });

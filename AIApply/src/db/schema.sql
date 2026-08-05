@@ -46,10 +46,13 @@ CREATE TABLE IF NOT EXISTS title_exclude_terms (
   term TEXT PRIMARY KEY COLLATE NOCASE
 );
 
--- The User Settings panel's "Job titles" pill list — roles the user is
--- personally targeting. Display/reference only for now, not wired into any
--- scan/filter logic (that's what the Job Settings title_include_terms are
--- for).
-CREATE TABLE IF NOT EXISTS target_job_titles (
-  term TEXT PRIMARY KEY COLLATE NOCASE
+-- The User Settings panel's scan location (City + radius) — enforced
+-- server-side in GET /api/jobs (see matchesCityFilter in
+-- public/shared/jobFilters.js), same as Job Settings' company/title
+-- filters, unlike the New Jobs tab's own City/radius filter which is a
+-- client-side-only, ephemeral view filter. Single row, id fixed at 1.
+CREATE TABLE IF NOT EXISTS scan_location_setting (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  city TEXT NOT NULL DEFAULT '',
+  radius_miles INTEGER NOT NULL DEFAULT 0
 );

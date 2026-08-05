@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { listTargetJobTitles, saveTargetJobTitles, pruneOldArchivedJobs, clearAllJobs } from "../db/client.js";
+import { getScanLocation, saveScanLocation, pruneOldArchivedJobs, clearAllJobs } from "../db/client.js";
 import { scanJobs } from "../jobs/scan.js";
 
 export const userSettingsRouter = Router();
@@ -24,17 +24,20 @@ function currentResumeFilename(): string | null {
 
 userSettingsRouter.get("/", (_req, res) => {
   res.json({
-    jobTitles: listTargetJobTitles(),
+    scanLocation: getScanLocation(),
     resumeFilename: currentResumeFilename(),
   });
 });
 
-userSettingsRouter.post("/job-titles", async (req, res) => {
-  const jobTitles = Array.isArray(req.body?.jobTitles)
-    ? req.body.jobTitles.filter((t: unknown) => typeof t === "string")
-    : [];
+// Scan location (city + radius) — unlike the New Jobs tab's own City/radius
+// filter (client-side, ephemeral), this is a persistent restriction
+// enforced server-side in GET /api/jobs (see matchesCityFilter there and in
+// public/shared/jobFilters.js).
+userSettingsRouter.post("/scan-location", async (req, res) => {
+  const city = typeof req.body?.city === "string" ? req.body.city : "";
+  const radiusMiles = Number(req.body?.radiusMiles) || 0;
   try {
-    saveTargetJobTitles(jobTitles);
+    saveScanLocation({ city, radiusMiles });
     // "Clear all existing job history" — a full, permanent wipe
     // (including Applied/Hidden history), confirmed client-side before this
     // request is even sent.
@@ -43,7 +46,7 @@ userSettingsRouter.post("/job-titles", async (req, res) => {
     // preference is reflected against fresh postings right away.
     await scanJobs();
     pruneOldArchivedJobs();
-    res.json({ jobTitles: listTargetJobTitles() });
+    res.json({ scanLocation: getScanLocation() });
   } catch (err) {
     res.status(500).json({ error: (err as Error).message });
   }
