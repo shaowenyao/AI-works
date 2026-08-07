@@ -45,6 +45,9 @@ const userSettingsOverlay = document.getElementById("user-settings-overlay");
 const userSettingsCloseBtn = document.getElementById("user-settings-close-btn");
 const userScanCityInput = document.getElementById("user-scan-city-input");
 const userScanRadiusSelect = document.getElementById("user-scan-radius-select");
+const userScanLocationCurrentRow = document.getElementById("user-scan-location-current");
+const userScanLocationCurrentLabel = document.getElementById("user-scan-location-current-label");
+const userScanLocationRemoveBtn = document.getElementById("user-scan-location-remove-btn");
 const userSettingsSaveBtn = document.getElementById("user-settings-save-btn");
 const userSettingsClearAllCheck = document.getElementById("user-settings-clear-all-check");
 const resumeCurrentRow = document.getElementById("resume-current-row");
@@ -149,6 +152,7 @@ const icons = {
   starFilled: `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`,
   x: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`,
   flag: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="3"/></svg>`,
+  globe: `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10Z"/></svg>`,
 };
 
 function escapeHtml(str) {
@@ -212,7 +216,7 @@ function jobCard(job) {
     smartrecruiters: "SmartRecruiters",
     bamboohr: "BambooHR",
   };
-  const sourceBadge = `<span class="source-badge">${escapeHtml(SOURCE_LABELS[job.source] ?? job.source)}</span>`;
+  const sourceBadge = `<span class="source-badge" title="Job board source">${icons.globe}${escapeHtml(SOURCE_LABELS[job.source] ?? job.source)}</span>`;
   const priorityBadge = job.priority ? `<span class="priority">Verified</span>` : "";
   // A manual way to mark a not-yet-verified company as legitimate. Checking
   // it does nothing on its own — the verdict only actually saves at the
@@ -271,16 +275,17 @@ function jobCard(job) {
   return `
     <div class="card ${job.priority ? "priority-card" : ""}" data-id="${job.id}" data-company="${escapeHtml(job.company)}" data-url="${escapeHtml(job.url)}">
       <div class="card-header">
-        <h3 class="card-title"><a href="${escapeHtml(job.url)}" target="_blank" rel="noopener" class="title-link">${escapeHtml(job.title)}</a> — <span class="company">${escapeHtml(job.company)}</span></h3>
+        <h3 class="card-title"><a href="${escapeHtml(job.url)}" target="_blank" rel="noopener" class="title-link">${escapeHtml(job.title)}</a> - <span class="company">${escapeHtml(job.company)}</span></h3>
         <div class="card-badges">
           ${priorityBadge}
           ${badgeGroup}
         </div>
       </div>
       <div class="meta">
-        ${[isApplied && job.applied_date ? formatAppliedWhen(job.applied_date) : "", isLocalJob(job) && job.location ? escapeHtml(job.location) : ""]
+        <span>${[isApplied && job.applied_date ? formatAppliedWhen(job.applied_date) : "", isLocalJob(job) && job.location ? escapeHtml(job.location) : ""]
           .filter(Boolean)
-          .join(" · ")}
+          .join(" · ")}</span>
+        ${applyOrderBadge}
       </div>
       <div class="actions">
         ${generateControl}
@@ -291,7 +296,6 @@ function jobCard(job) {
         ${flagCompanyControl}
         ${excludeControl}
         <span class="links">
-          ${applyOrderBadge}
           ${legitControl}
           <a href="${escapeHtml(job.url)}" target="_blank" rel="noopener">View posting ${icons.external}</a>
           ${hasDocs ? `<a href="/files/${encodeURIComponent(job.resume_path.split("/").slice(-2).join("/"))}" target="_blank">Resume</a>` : ""}
@@ -897,6 +901,18 @@ function renderResumeState(resumeFilename) {
   }
 }
 
+// Shows the currently saved scan location as a chip (same look as the
+// Job Settings company/term chips) so it's clear at a glance whether one is
+// set — with an X to clear it, since only ever one location applies here.
+function renderScanLocationChip(city, radiusMiles) {
+  if (!city) {
+    userScanLocationCurrentRow.hidden = true;
+    return;
+  }
+  userScanLocationCurrentLabel.textContent = radiusMiles ? `${city} · Within ${radiusMiles} mi` : city;
+  userScanLocationCurrentRow.hidden = false;
+}
+
 async function openUserSettingsDrawer() {
   closeSettingsMenu();
   resumeError.hidden = true;
@@ -904,8 +920,11 @@ async function openUserSettingsDrawer() {
   userSettingsClearAllCheck.checked = false;
   try {
     const settings = await (await fetch("/api/user-settings")).json();
-    userScanCityInput.value = settings.scanLocation?.city ?? "";
-    userScanRadiusSelect.value = String(settings.scanLocation?.radiusMiles ?? 0);
+    const city = settings.scanLocation?.city ?? "";
+    const radiusMiles = settings.scanLocation?.radiusMiles ?? 0;
+    userScanCityInput.value = city;
+    userScanRadiusSelect.value = String(radiusMiles);
+    renderScanLocationChip(city, radiusMiles);
     renderResumeState(settings.resumeFilename);
   } catch (err) {
     alert(`Failed to load user settings: ${err.message}`);
@@ -913,6 +932,12 @@ async function openUserSettingsDrawer() {
   }
   userSettingsOverlay.hidden = false;
 }
+
+userScanLocationRemoveBtn.addEventListener("click", () => {
+  userScanCityInput.value = "";
+  userScanRadiusSelect.value = "0";
+  userScanLocationCurrentRow.hidden = true;
+});
 
 function closeUserSettingsDrawer() {
   userSettingsOverlay.hidden = true;

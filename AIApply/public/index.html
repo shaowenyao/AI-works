@@ -2,18 +2,43 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>Job Application Assistant</title>
+    <title>FitPilot.AI</title>
     <style>
+      :root {
+        --ios-bg: #f2f2f7;
+        --ios-card-bg: #ffffff;
+        --ios-blue: #007aff;
+        --ios-blue-tint: rgba(0, 122, 255, 0.12);
+        --ios-green: #34c759;
+        --ios-green-tint: rgba(52, 199, 89, 0.14);
+        --ios-green-text: #1a7f37;
+        --ios-red: #ff3b30;
+        --ios-red-tint: rgba(255, 59, 48, 0.12);
+        --ios-red-text: #d70015;
+        --ios-orange-tint: rgba(255, 149, 0, 0.16);
+        --ios-orange-text: #9a5b00;
+        --ios-label: #1c1c1e;
+        --ios-secondary-label: #8e8e93;
+        --ios-tertiary-label: #c7c7cc;
+        --ios-separator: rgba(60, 60, 67, 0.29);
+        --ios-fill: rgba(120, 120, 128, 0.12);
+        --ios-fill-strong: rgba(120, 120, 128, 0.24);
+        --ios-radius-lg: 20px;
+        --ios-radius-md: 16px;
+        --ios-radius-sm: 10px;
+        --ios-radius-pill: 999px;
+      }
       * {
         box-sizing: border-box;
       }
       body {
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        -webkit-font-smoothing: antialiased;
         max-width: 880px;
         margin: 2rem auto;
         padding: 0 1rem;
-        color: #1a1a1a;
-        background: #f5f6f7;
+        color: var(--ios-label);
+        background: var(--ios-bg);
         /* The apply-notice banner and card list both resize as jobs move
            between tabs — without this, the browser's scroll anchoring
            quietly re-adjusts scrollTop to compensate, fighting any
@@ -30,40 +55,81 @@
         display: flex;
         gap: 0.5rem;
       }
+      .app-logo {
+        height: 40px;
+        width: auto;
+      }
       button {
         cursor: pointer;
         display: inline-flex;
         align-items: center;
         gap: 0.35rem;
-        border: 1px solid #d8dbdf;
-        background: #fff;
-        border-radius: 8px;
-        padding: 0.45rem 0.9rem;
+        border: none;
+        background: var(--ios-fill);
+        border-radius: var(--ios-radius-pill);
+        padding: 0.5rem 1rem;
         font-size: 0.85rem;
-        color: #1a1a1a;
+        font-weight: 500;
+        color: var(--ios-label);
+        transition: background 0.15s ease;
       }
       button:hover:not(:disabled) {
-        background: #f2f2f2;
+        background: var(--ios-fill-strong);
       }
       button:disabled {
-        opacity: 0.55;
+        opacity: 0.45;
         cursor: default;
-        color: #b0b3b8;
+        color: var(--ios-secondary-label);
       }
       .btn-dark {
-        background: #616160;
+        background: var(--ios-blue);
         color: #fff;
-        border-color: #616160;
       }
       .btn-dark:hover:not(:disabled) {
-        background: #4c4c4b;
+        background: #0066d6;
       }
       .btn-danger {
-        color: #b3261e;
-        border-color: #f3c9c9;
+        color: var(--ios-red-text);
+        background: var(--ios-red-tint);
       }
       .btn-danger:hover:not(:disabled) {
-        background: #fdf1f0;
+        background: rgba(255, 59, 48, 0.2);
+      }
+      input[type="checkbox"] {
+        appearance: none;
+        -webkit-appearance: none;
+        width: 40px;
+        height: 24px;
+        background: var(--ios-fill-strong);
+        border-radius: var(--ios-radius-pill);
+        position: relative;
+        cursor: pointer;
+        flex-shrink: 0;
+        margin: 0;
+        transition: background 0.2s ease;
+        vertical-align: middle;
+      }
+      input[type="checkbox"]::before {
+        content: "";
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 20px;
+        height: 20px;
+        background: #fff;
+        border-radius: 50%;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+        transition: transform 0.2s ease;
+      }
+      input[type="checkbox"]:checked {
+        background: var(--ios-green);
+      }
+      input[type="checkbox"]:checked::before {
+        transform: translateX(16px);
+      }
+      input[type="checkbox"]:disabled {
+        opacity: 0.5;
+        cursor: default;
       }
       .settings-wrap {
         position: relative;
@@ -76,10 +142,12 @@
         top: calc(100% + 0.4rem);
         right: 0;
         min-width: 180px;
-        background: #fff;
-        border: 1px solid #eceef0;
-        border-radius: 10px;
-        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+        background: rgba(255, 255, 255, 0.85);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: none;
+        border-radius: 14px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
         padding: 0.4rem;
         z-index: 20;
       }
@@ -91,25 +159,25 @@
         width: 100%;
         border: none;
         background: none;
-        padding: 0.55rem 0.6rem;
-        border-radius: 6px;
+        padding: 0.6rem 0.7rem;
+        border-radius: 8px;
         font-size: 0.85rem;
+        font-weight: 400;
         text-align: left;
       }
       .settings-menu button:hover {
-        background: #f2f2f2;
+        background: var(--ios-fill);
       }
       .card {
-        background: #fff;
-        border: 1px solid #eceef0;
-        border-radius: 12px;
+        background: var(--ios-card-bg);
+        border: none;
+        border-radius: var(--ios-radius-md);
         padding: 1.1rem 1.25rem;
         margin-bottom: 1rem;
-        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
       }
       .priority-card {
-        background: #eaf2fb;
-        border-color: #cddef2;
+        background: var(--ios-blue-tint);
       }
       .card-header {
         display: flex;
@@ -124,7 +192,7 @@
       }
       .card-title .company {
         font-weight: 400;
-        color: #6b7280;
+        color: var(--ios-label);
       }
       .title-link {
         color: inherit;
@@ -144,18 +212,18 @@
         font-size: 0.75rem;
         font-weight: 600;
         padding: 0.15rem 0.6rem;
-        border-radius: 999px;
-        background: #dbeafe;
-        color: #1e40af;
+        border-radius: var(--ios-radius-pill);
+        background: var(--ios-blue-tint);
+        color: var(--ios-blue);
       }
       .status {
         display: inline-block;
         font-size: 0.75rem;
         font-weight: 600;
         padding: 0.15rem 0.6rem;
-        border-radius: 999px;
-        background: #eceff1;
-        color: #444;
+        border-radius: var(--ios-radius-pill);
+        background: var(--ios-fill);
+        color: var(--ios-label);
       }
       .date-badge,
       .source-badge {
@@ -163,23 +231,34 @@
         font-size: 0.75rem;
         font-weight: 600;
         padding: 0.15rem 0.6rem;
-        border-radius: 999px;
-        background: #eef2f7;
-        color: #4b5563;
+        border-radius: var(--ios-radius-pill);
+        background: var(--ios-fill);
+        color: var(--ios-label);
+      }
+      .source-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
       }
       .apply-order-badge {
         display: inline-block;
         font-size: 0.75rem;
         font-weight: 600;
         padding: 0.15rem 0.6rem;
-        border-radius: 999px;
-        background: #fef3c7;
-        color: #92400e;
+        border-radius: var(--ios-radius-pill);
+        background: var(--ios-orange-tint);
+        color: var(--ios-orange-text);
       }
       .meta {
         margin: 0.4rem 0 0.9rem;
         font-size: 0.8rem;
-        color: #6b7280;
+        color: var(--ios-label);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+      .meta .apply-order-badge {
+        margin-left: auto;
       }
       .actions {
         display: flex;
@@ -195,11 +274,11 @@
       }
       .job-location {
         font-size: 0.8rem;
-        color: #8a8f98;
+        color: var(--ios-label);
       }
       .actions a {
         font-size: 0.85rem;
-        color: #2563eb;
+        color: var(--ios-blue);
         text-decoration: none;
         display: inline-flex;
         align-items: center;
@@ -215,10 +294,10 @@
         gap: 0.5rem;
         margin-top: 0.6rem;
         padding: 0.5rem 0.75rem;
-        background: #fef2f2;
-        border: 1px solid #fecaca;
-        border-radius: 8px;
-        color: #b3261e;
+        background: var(--ios-red-tint);
+        border: none;
+        border-radius: var(--ios-radius-sm);
+        color: var(--ios-red-text);
         font-size: 0.85rem;
       }
       .apply-error[hidden] {
@@ -226,20 +305,20 @@
       }
       .favorite-btn {
         padding: 0.45rem 0.6rem;
-        color: #9aa0a8;
+        color: var(--ios-label);
+        background: var(--ios-fill);
       }
       .favorite-btn:hover:not(:disabled) {
-        color: #d97706;
+        color: #b8860b;
       }
       .favorite-btn[data-favorited="true"] {
-        color: #d97706;
-        border-color: #fcd9a4;
-        background: #fffaf0;
+        color: #b8860b;
+        background: rgba(255, 149, 0, 0.16);
       }
       .dismiss-error-btn {
         border: none;
         background: none;
-        color: #b3261e;
+        color: var(--ios-red-text);
         font-size: 1.1rem;
         line-height: 1;
         cursor: pointer;
@@ -256,12 +335,12 @@
       }
       .exclude-btn,
       .flag-company-btn {
-        color: #b3261e;
-        border-color: #f3c9c9;
+        color: var(--ios-red-text);
+        background: var(--ios-red-tint);
       }
       .exclude-btn:hover:not(:disabled),
       .flag-company-btn:hover:not(:disabled) {
-        background: #fdf1f0;
+        background: rgba(255, 59, 48, 0.2);
       }
       .spinner {
         display: inline-block;
@@ -284,10 +363,10 @@
         gap: 0.5rem;
         margin: 0.5rem 0 1rem;
         padding: 0.5rem 0.75rem;
-        background: #eef6ec;
-        border: 1px solid #cfe8c8;
-        border-radius: 8px;
-        color: #2f6b26;
+        background: var(--ios-green-tint);
+        border: none;
+        border-radius: var(--ios-radius-sm);
+        color: var(--ios-green-text);
         font-size: 0.85rem;
       }
       .apply-notice[hidden] {
@@ -296,7 +375,7 @@
       .dismiss-notice-btn {
         border: none;
         background: none;
-        color: #2f6b26;
+        color: var(--ios-green-text);
         font-size: 1.1rem;
         line-height: 1;
         cursor: pointer;
@@ -305,7 +384,9 @@
       .modal-overlay {
         position: fixed;
         inset: 0;
-        background: rgba(0, 0, 0, 0.4);
+        background: rgba(0, 0, 0, 0.25);
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -316,7 +397,7 @@
       }
       .modal {
         background: #fff;
-        border-radius: 12px;
+        border-radius: var(--ios-radius-lg);
         padding: 1.5rem;
         width: 420px;
         max-width: calc(100vw - 2rem);
@@ -329,28 +410,28 @@
       .modal-hint {
         margin: 0 0 0.9rem;
         font-size: 0.8rem;
-        color: #6b7280;
+        color: var(--ios-label);
       }
       .modal-error {
         margin: 0.6rem 0 0;
         font-size: 0.8rem;
-        color: #b3261e;
+        color: var(--ios-red-text);
       }
       .modal-error[hidden] {
         display: none;
       }
       #add-job-url-input {
         width: 100%;
-        border: 1px solid #d8dbdf;
-        background: #fff;
-        border-radius: 8px;
-        padding: 0.5rem 0.75rem;
+        border: none;
+        background: var(--ios-fill);
+        border-radius: var(--ios-radius-sm);
+        padding: 0.55rem 0.8rem;
         font-size: 0.85rem;
-        color: #1a1a1a;
+        color: var(--ios-label);
       }
       #add-job-url-input:focus {
         outline: none;
-        border-color: #9aa0a8;
+        box-shadow: 0 0 0 3px var(--ios-blue-tint);
       }
       .modal-actions {
         display: flex;
@@ -361,13 +442,13 @@
       .legit-check {
         display: flex;
         align-items: center;
-        gap: 0.3rem;
+        gap: 0.4rem;
         font-size: 0.85rem;
-        color: #444;
+        color: var(--ios-label);
         flex-shrink: 0;
       }
       #empty {
-        color: #666;
+        color: var(--ios-label);
       }
       .filter-row {
         display: flex;
@@ -381,12 +462,12 @@
       #user-scan-radius-select,
       .pipeline-select {
         cursor: pointer;
-        border: 1px solid #d8dbdf;
-        background: #fff;
-        border-radius: 8px;
+        border: none;
+        background: var(--ios-fill);
+        border-radius: var(--ios-radius-sm);
         padding: 0.45rem 2rem 0.45rem 0.9rem;
         font-size: 0.85rem;
-        color: #1a1a1a;
+        color: var(--ios-label);
         appearance: none;
         background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="%23555" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>');
         background-repeat: no-repeat;
@@ -394,25 +475,25 @@
       }
       #search-input,
       #city-filter {
-        border: 1px solid #d8dbdf;
-        background: #fff;
-        border-radius: 8px;
+        border: none;
+        background: var(--ios-fill);
+        border-radius: var(--ios-radius-sm);
         padding: 0.45rem 0.9rem;
         font-size: 0.85rem;
-        color: #1a1a1a;
+        color: var(--ios-label);
         width: 200px;
       }
       #search-input::placeholder,
       #city-filter::placeholder {
-        color: #b0b3b8;
+        color: var(--ios-tertiary-label);
       }
       #search-input:focus,
       #city-filter:focus {
         outline: none;
-        border-color: #9aa0a8;
+        box-shadow: 0 0 0 3px var(--ios-blue-tint);
       }
       .filter-note {
-        color: #8a8f98;
+        color: var(--ios-label);
         font-size: 0.85rem;
       }
       .filter-left {
@@ -423,7 +504,7 @@
       .page-footer {
         margin-top: 2rem;
         padding-top: 1rem;
-        border-top: 1px solid #e0e2e5;
+        border-top: 1px solid var(--ios-separator);
         display: flex;
         align-items: center;
         justify-content: space-between;
@@ -431,9 +512,9 @@
       .demo-mode-check {
         display: flex;
         align-items: center;
-        gap: 0.4rem;
+        gap: 0.5rem;
         font-size: 0.85rem;
-        color: #444;
+        color: var(--ios-label);
         cursor: pointer;
       }
       .pagination {
@@ -441,20 +522,20 @@
         align-items: center;
         gap: 0.6rem;
         font-size: 0.85rem;
-        color: #444;
+        color: var(--ios-label);
       }
       .pagination button {
-        padding: 0.35rem 0.7rem;
+        padding: 0.35rem 0.8rem;
         font-size: 0.8rem;
       }
       .pagination #page-size-select {
         cursor: pointer;
-        border: 1px solid #d8dbdf;
-        background: #fff;
-        border-radius: 8px;
+        border: none;
+        background: var(--ios-fill);
+        border-radius: var(--ios-radius-sm);
         padding: 0.35rem 1.8rem 0.35rem 0.7rem;
         font-size: 0.8rem;
-        color: #1a1a1a;
+        color: var(--ios-label);
         appearance: none;
         background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="%23555" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>');
         background-repeat: no-repeat;
@@ -463,7 +544,8 @@
       .tabs {
         display: flex;
         gap: 1.5rem;
-        border-bottom: 1px solid #e0e2e5;
+        border-bottom: 1px solid var(--ios-separator);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
         margin-top: 1.25rem;
       }
       .tab-btn {
@@ -473,22 +555,24 @@
         padding: 0.6rem 0.1rem;
         font-size: 0.9rem;
         font-weight: 600;
-        color: #8a8f98;
+        color: var(--ios-secondary-label);
         border-bottom: 2px solid transparent;
         margin-bottom: -1px;
       }
       .tab-btn:hover:not(:disabled) {
         background: none;
-        color: #1a1a1a;
+        color: var(--ios-label);
       }
       .tab-btn.active {
-        color: #1a1a1a;
-        border-bottom-color: #1a1a1a;
+        color: var(--ios-label);
+        border-bottom-color: var(--ios-label);
       }
       .drawer-overlay {
         position: fixed;
         inset: 0;
-        background: rgba(0, 0, 0, 0.3);
+        background: rgba(0, 0, 0, 0.25);
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
         z-index: 30;
       }
       .drawer-overlay[hidden] {
@@ -502,7 +586,8 @@
         width: 420px;
         max-width: calc(100vw - 2rem);
         background: #fff;
-        box-shadow: -8px 0 24px rgba(0, 0, 0, 0.15);
+        border-radius: var(--ios-radius-lg) 0 0 var(--ios-radius-lg);
+        box-shadow: -8px 0 32px rgba(0, 0, 0, 0.18);
         display: flex;
         flex-direction: column;
         animation: drawer-in 0.18s ease-out;
@@ -520,7 +605,7 @@
         align-items: center;
         justify-content: space-between;
         padding: 1.1rem 1.25rem;
-        border-bottom: 1px solid #eceef0;
+        border-bottom: 1px solid var(--ios-separator);
       }
       .drawer-header h2 {
         margin: 0;
@@ -528,15 +613,15 @@
       }
       .drawer-close-btn {
         border: none;
-        background: none;
-        padding: 0.3rem;
-        border-radius: 6px;
+        background: var(--ios-fill);
+        padding: 0.35rem;
+        border-radius: var(--ios-radius-pill);
       }
       .drawer-tabs {
         display: flex;
         gap: 1.25rem;
         padding: 0 1.25rem;
-        border-bottom: 1px solid #eceef0;
+        border-bottom: 1px solid var(--ios-separator);
       }
       .drawer-tab-btn {
         border: none;
@@ -545,17 +630,17 @@
         padding: 0.7rem 0.1rem;
         font-size: 0.85rem;
         font-weight: 600;
-        color: #8a8f98;
+        color: var(--ios-secondary-label);
         border-bottom: 2px solid transparent;
         margin-bottom: -1px;
       }
       .drawer-tab-btn:hover:not(:disabled) {
         background: none;
-        color: #1a1a1a;
+        color: var(--ios-label);
       }
       .drawer-tab-btn.active {
-        color: #1a1a1a;
-        border-bottom-color: #1a1a1a;
+        color: var(--ios-label);
+        border-bottom-color: var(--ios-label);
       }
       .drawer-body {
         flex: 1;
@@ -577,33 +662,35 @@
       .term-section-header h3 {
         margin: 0;
         font-size: 0.85rem;
-        color: #444;
+        color: var(--ios-label);
       }
       .term-count {
         font-size: 0.78rem;
-        color: #9aa0a8;
+        color: var(--ios-tertiary-label);
       }
       /* The Companies tab's two collapsible cards — bordered, rounded,
          each with its own search box inside so searching one list never
          hides matches in the other. .term-section (above) is still what
          the plain, non-collapsible Job Title tab sections use. */
       .term-accordion {
-        border: 1px solid #eceef0;
-        border-radius: 10px;
+        border: none;
+        border-radius: var(--ios-radius-sm);
         margin-bottom: 0.9rem;
         overflow: hidden;
         border-left: 3px solid transparent;
+        background: var(--ios-card-bg);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
       }
       .term-accordion.add-color {
-        border-left-color: #1a7f37;
+        border-left-color: var(--ios-green);
       }
       .term-accordion.ban-color {
-        border-left-color: #b3261e;
+        border-left-color: var(--ios-red);
       }
       .term-accordion .term-collapse-toggle {
         width: 100%;
         border: none;
-        background: #fafbfb;
+        background: none;
         padding: 0.7rem 0.9rem;
         display: flex;
         align-items: center;
@@ -612,25 +699,25 @@
         border-radius: 0;
       }
       .term-accordion .term-collapse-toggle:hover {
-        background: #f2f3f4;
+        background: var(--ios-fill);
       }
       .term-accordion .term-collapse-toggle h3 {
         margin: 0;
         font-size: 0.85rem;
-        color: #1a1a1a;
+        color: var(--ios-label);
         font-weight: 600;
       }
       .term-collapse-chevron {
         transition: transform 0.15s ease;
         flex-shrink: 0;
-        color: #8a8f98;
+        color: var(--ios-secondary-label);
       }
       .term-collapse-toggle[aria-expanded="true"] .term-collapse-chevron {
         transform: rotate(90deg);
       }
       .term-accordion-body {
         padding: 0.9rem;
-        border-top: 1px solid #eceef0;
+        border-top: 1px solid var(--ios-separator);
       }
       .term-accordion-body[hidden] {
         display: none;
@@ -642,15 +729,16 @@
       }
       .term-search-input {
         flex: 1;
-        border: 1px solid #d8dbdf;
-        border-radius: 8px;
-        padding: 0.4rem 0.7rem;
+        border: none;
+        background: var(--ios-fill);
+        border-radius: var(--ios-radius-sm);
+        padding: 0.42rem 0.7rem;
         font-size: 0.82rem;
-        color: #1a1a1a;
+        color: var(--ios-label);
       }
       .term-search-input:focus {
         outline: none;
-        border-color: #9aa0a8;
+        box-shadow: 0 0 0 3px var(--ios-blue-tint);
       }
       .term-section-toolbar .term-add-btn {
         flex-shrink: 0;
@@ -673,16 +761,16 @@
         display: none;
       }
       .term-add-btn.add-color {
-        background: #1a7f37;
+        background: var(--ios-green);
       }
       .term-add-btn.add-color:hover {
-        background: #146c2e;
+        background: #2aa147;
       }
       .term-add-btn.ban-color {
-        background: #b3261e;
+        background: var(--ios-red);
       }
       .term-add-btn.ban-color:hover {
-        background: #94201a;
+        background: #e0281d;
       }
       .term-input-row {
         display: flex;
@@ -694,10 +782,12 @@
       }
       .term-input-row input {
         flex: 1;
-        border: 1px solid #d8dbdf;
-        border-radius: 8px;
-        padding: 0.4rem 0.6rem;
+        border: none;
+        background: var(--ios-fill);
+        border-radius: var(--ios-radius-sm);
+        padding: 0.42rem 0.6rem;
         font-size: 0.82rem;
+        color: var(--ios-label);
       }
       .term-list {
         display: flex;
@@ -711,17 +801,17 @@
         display: inline-flex;
         align-items: center;
         gap: 0.35rem;
-        border-radius: 999px;
+        border-radius: var(--ios-radius-pill);
         padding: 0.3rem 0.4rem 0.3rem 0.7rem;
         font-size: 0.8rem;
       }
       .term-chip.add-color {
-        background: #e7f5ea;
-        color: #146c2e;
+        background: var(--ios-green-tint);
+        color: var(--ios-green-text);
       }
       .term-chip.ban-color {
-        background: #fdf1f0;
-        color: #94201a;
+        background: var(--ios-red-tint);
+        color: var(--ios-red-text);
       }
       .term-chip-remove {
         border: none;
@@ -736,12 +826,12 @@
       }
       .term-empty {
         font-size: 0.78rem;
-        color: #9aa0a8;
+        color: var(--ios-tertiary-label);
       }
       .settings-section-title {
         margin: 0 0 0.6rem;
         font-size: 0.85rem;
-        color: #444;
+        color: var(--ios-label);
       }
       .scan-location-row {
         display: flex;
@@ -750,23 +840,24 @@
       }
       .scan-location-row input {
         flex: 1;
-        border: 1px solid #d8dbdf;
-        border-radius: 8px;
+        border: none;
+        background: var(--ios-fill);
+        border-radius: var(--ios-radius-sm);
         padding: 0.45rem 0.9rem;
         font-size: 0.85rem;
-        color: #1a1a1a;
+        color: var(--ios-label);
       }
       .scan-location-row input:focus {
         outline: none;
-        border-color: #9aa0a8;
+        box-shadow: 0 0 0 3px var(--ios-blue-tint);
       }
       .resume-current-row {
         display: flex;
         align-items: center;
         gap: 0.5rem;
         padding: 0.5rem 0.7rem;
-        background: #f5f6f7;
-        border-radius: 8px;
+        background: var(--ios-fill);
+        border-radius: var(--ios-radius-sm);
         font-size: 0.82rem;
         margin-bottom: 0.6rem;
       }
@@ -780,13 +871,13 @@
         white-space: nowrap;
       }
       #resume-remove-btn {
-        color: #b3261e;
-        border-color: #f3c9c9;
-        padding: 0.3rem 0.6rem;
+        color: var(--ios-red-text);
+        background: var(--ios-red-tint);
+        padding: 0.3rem 0.7rem;
         font-size: 0.78rem;
       }
       #resume-remove-btn:hover {
-        background: #fdf1f0;
+        background: rgba(255, 59, 48, 0.2);
       }
       #resume-file-input {
         font-size: 0.8rem;
@@ -794,7 +885,7 @@
       }
       .drawer-footer {
         padding: 1rem 1.25rem;
-        border-top: 1px solid #eceef0;
+        border-top: 1px solid var(--ios-separator);
         display: flex;
         align-items: center;
         justify-content: space-between;
@@ -803,18 +894,18 @@
       .clear-all-check {
         display: flex;
         align-items: center;
-        gap: 0.4rem;
+        gap: 0.5rem;
         font-size: 0.78rem;
-        color: #b3261e;
+        color: var(--ios-red-text);
       }
       #job-settings-save-btn {
-        border-radius: 8px;
+        border-radius: var(--ios-radius-pill);
       }
     </style>
   </head>
   <body>
     <h1>
-      Job Application Assistant
+      <img src="/assets/logo.png" alt="FitPilot.AI" class="app-logo" />
       <span class="header-actions">
         <button id="dummy-btn">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -914,7 +1005,7 @@
           <option value="remote">Remote</option>
           <option value="local">Local</option>
         </select>
-        <input type="text" id="search-input" placeholder="search" />
+        <input type="text" id="search-input" placeholder="Job Title" />
       </span>
       <span class="filter-note" id="filter-note"></span>
     </div>
@@ -1072,6 +1163,14 @@
                 <option value="25">Within 25 mi</option>
                 <option value="50">Within 50 mi</option>
               </select>
+            </div>
+            <div class="term-list" id="user-scan-location-current" hidden>
+              <span class="term-chip add-color">
+                <span id="user-scan-location-current-label"></span>
+                <button class="term-chip-remove" id="user-scan-location-remove-btn" aria-label="Remove saved location">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              </span>
             </div>
           </div>
           <div class="term-section">
