@@ -3,6 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <title>FitPilot.AI</title>
+    <link rel="icon" type="image/png" href="/assets/favicon.png" />
     <style>
       :root {
         --ios-bg: #f2f2f7;
@@ -456,10 +457,14 @@
         gap: 0.5rem;
         margin: 1rem 0;
       }
+      .filter-row[hidden] {
+        display: none;
+      }
       #time-range-filter,
       #location-filter,
       #radius-filter,
       #user-scan-radius-select,
+      #onboarding-scan-radius-select,
       .pipeline-select {
         cursor: pointer;
         border: none;
@@ -508,6 +513,9 @@
         display: flex;
         align-items: center;
         justify-content: space-between;
+      }
+      .page-footer[hidden] {
+        display: none;
       }
       .demo-mode-check {
         display: flex;
@@ -870,16 +878,19 @@
         text-overflow: ellipsis;
         white-space: nowrap;
       }
-      #resume-remove-btn {
+      #resume-remove-btn,
+      #onboarding-resume-remove-btn {
         color: var(--ios-red-text);
         background: var(--ios-red-tint);
         padding: 0.3rem 0.7rem;
         font-size: 0.78rem;
       }
-      #resume-remove-btn:hover {
+      #resume-remove-btn:hover,
+      #onboarding-resume-remove-btn:hover {
         background: rgba(255, 59, 48, 0.2);
       }
-      #resume-file-input {
+      #resume-file-input,
+      #onboarding-resume-file-input {
         font-size: 0.8rem;
         margin-bottom: 0.6rem;
       }
@@ -900,6 +911,60 @@
       }
       #job-settings-save-btn {
         border-radius: var(--ios-radius-pill);
+      }
+      #get-started-btn[hidden] {
+        display: none;
+      }
+      .onboarding-welcome {
+        text-align: center;
+        margin: 2rem 0 1.75rem;
+      }
+      .onboarding-welcome h2 {
+        margin: 0 0 0.5rem;
+        font-size: 1.4rem;
+      }
+      .onboarding-welcome p {
+        margin: 0 auto;
+        max-width: 520px;
+        color: var(--ios-secondary-label);
+        font-size: 0.9rem;
+      }
+      .onboarding-columns {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.25rem;
+        align-items: start;
+      }
+      @media (max-width: 700px) {
+        .onboarding-columns {
+          grid-template-columns: 1fr;
+        }
+      }
+      .onboarding-step {
+        background: var(--ios-card-bg);
+        border-radius: var(--ios-radius-md);
+        padding: 1.1rem 1.25rem;
+        margin-bottom: 1.25rem;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+      }
+      .onboarding-step > h3 {
+        margin: 0 0 0.9rem;
+        font-size: 1rem;
+      }
+      .onboarding-footer {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.6rem;
+        margin: 0.5rem 0 2rem;
+      }
+      .required-star {
+        color: var(--ios-red);
+      }
+      #onboarding-finish-btn {
+        border-radius: var(--ios-radius-pill);
+        padding: 0.7rem 1.6rem;
+        font-size: 0.95rem;
       }
     </style>
   </head>
@@ -1027,10 +1092,138 @@
           <option value="50" selected>50 / page</option>
           <option value="100">100 / page</option>
         </select>
+        <button class="btn-dark" id="get-started-btn" hidden>Get Started</button>
       </div>
       <label class="demo-mode-check" title="Lets 'Apply with AI fill' be used right after 'Optimize CV', without waiting for real documents to be generated — for UX testing/demos">
         <input type="checkbox" id="demo-mode-toggle" /> Demo mode
       </label>
+    </div>
+    <div id="onboarding-panel" hidden>
+      <div class="onboarding-welcome">
+        <h2>Welcome to FitPilot.AI</h2>
+        <p>Let's get your search set up — add the companies and titles you're targeting, upload your resume, and set a location. You can always change these later from the settings gear.</p>
+      </div>
+      <div class="onboarding-columns">
+        <div class="onboarding-column">
+          <div class="onboarding-step">
+            <h3>Add companies <span class="required-star" id="onboarding-companies-required" hidden>*</span></h3>
+            <div class="term-accordion add-color">
+              <button class="term-collapse-toggle" data-collapse-toggle="priorityCompanies" aria-expanded="false">
+                <svg class="term-collapse-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                <h3>Included Companies</h3>
+                <span class="term-count" data-count="priorityCompanies"></span>
+              </button>
+              <div class="term-accordion-body" data-accordion-body="priorityCompanies" hidden>
+                <div class="term-section-toolbar">
+                  <input type="text" class="term-search-input" data-term-search="priorityCompanies" placeholder="Search companies to add" />
+                  <button class="term-add-btn add-color" data-list="priorityCompanies" aria-label="Add company">+</button>
+                </div>
+                <div class="term-input-row" data-input-for="priorityCompanies" hidden>
+                  <input type="text" placeholder="Company name" data-input="priorityCompanies" />
+                  <button class="btn-dark" data-confirm="priorityCompanies">Add</button>
+                </div>
+                <div class="term-list" data-list-el="priorityCompanies"></div>
+              </div>
+            </div>
+            <div class="term-accordion ban-color">
+              <button class="term-collapse-toggle" data-collapse-toggle="bannedCompanies" aria-expanded="false">
+                <svg class="term-collapse-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                <h3>Excluded Companies</h3>
+                <span class="term-count" data-count="bannedCompanies"></span>
+              </button>
+              <div class="term-accordion-body" data-accordion-body="bannedCompanies" hidden>
+                <div class="term-section-toolbar">
+                  <input type="text" class="term-search-input" data-term-search="bannedCompanies" placeholder="Search companies to ban" />
+                  <button class="term-add-btn ban-color" data-list="bannedCompanies" aria-label="Ban company">+</button>
+                </div>
+                <div class="term-input-row" data-input-for="bannedCompanies" hidden>
+                  <input type="text" placeholder="Company name" data-input="bannedCompanies" />
+                  <button class="btn-dark" data-confirm="bannedCompanies">Add</button>
+                </div>
+                <div class="term-list" data-list-el="bannedCompanies"></div>
+              </div>
+            </div>
+          </div>
+          <div class="onboarding-step">
+            <h3>Add job title <span class="required-star" id="onboarding-title-required" hidden>*</span></h3>
+            <div class="term-accordion add-color">
+              <button class="term-collapse-toggle" data-collapse-toggle="includeTerms" aria-expanded="false">
+                <svg class="term-collapse-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                <h3>Included Title Terms</h3>
+                <span class="term-count" data-count="includeTerms"></span>
+              </button>
+              <div class="term-accordion-body" data-accordion-body="includeTerms" hidden>
+                <div class="term-section-toolbar">
+                  <input type="text" class="term-search-input" data-term-search="includeTerms" placeholder="Search included terms" />
+                  <button class="term-add-btn add-color" data-list="includeTerms" aria-label="Add term">+</button>
+                </div>
+                <div class="term-input-row" data-input-for="includeTerms" hidden>
+                  <input type="text" placeholder="e.g. Brand Designer" data-input="includeTerms" />
+                  <button class="btn-dark" data-confirm="includeTerms">Add</button>
+                </div>
+                <div class="term-list" data-list-el="includeTerms"></div>
+              </div>
+            </div>
+            <div class="term-accordion ban-color">
+              <button class="term-collapse-toggle" data-collapse-toggle="excludeTerms" aria-expanded="false">
+                <svg class="term-collapse-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                <h3>Excluded Title Terms</h3>
+                <span class="term-count" data-count="excludeTerms"></span>
+              </button>
+              <div class="term-accordion-body" data-accordion-body="excludeTerms" hidden>
+                <div class="term-section-toolbar">
+                  <input type="text" class="term-search-input" data-term-search="excludeTerms" placeholder="Search excluded terms" />
+                  <button class="term-add-btn ban-color" data-list="excludeTerms" aria-label="Ban term">+</button>
+                </div>
+                <div class="term-input-row" data-input-for="excludeTerms" hidden>
+                  <input type="text" placeholder="e.g. Recruiter" data-input="excludeTerms" />
+                  <button class="btn-dark" data-confirm="excludeTerms">Add</button>
+                </div>
+                <div class="term-list" data-list-el="excludeTerms"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="onboarding-column">
+          <div class="onboarding-step">
+            <h3>Add resume <span class="required-star" id="onboarding-resume-required" hidden>*</span></h3>
+            <div class="resume-current-row" id="onboarding-resume-current-row" hidden>
+              <a id="onboarding-resume-current-link" href="#" target="_blank"></a>
+              <button id="onboarding-resume-remove-btn">Remove</button>
+            </div>
+            <input type="file" id="onboarding-resume-file-input" accept=".pdf,.doc,.docx" />
+            <div>
+              <button class="btn-dark" id="onboarding-resume-upload-btn">Upload</button>
+            </div>
+            <p class="modal-error" id="onboarding-resume-error" hidden></p>
+          </div>
+          <div class="onboarding-step">
+            <h3>Add locations <span class="required-star" id="onboarding-location-required" hidden>*</span></h3>
+            <p class="modal-hint">Only jobs matching this city (and radius, if set) will ever be scanned or shown — leave the city blank for no restriction.</p>
+            <div class="scan-location-row">
+              <input type="text" id="onboarding-scan-city-input" list="city-suggestions" placeholder="City" autocomplete="off" />
+              <select id="onboarding-scan-radius-select" title="How far from the city above to include">
+                <option value="0">Exact match</option>
+                <option value="10">Within 10 mi</option>
+                <option value="25">Within 25 mi</option>
+                <option value="50">Within 50 mi</option>
+              </select>
+            </div>
+            <div class="term-list" id="onboarding-scan-location-current" hidden>
+              <span class="term-chip add-color">
+                <span id="onboarding-scan-location-current-label"></span>
+                <button class="term-chip-remove" id="onboarding-scan-location-remove-btn" aria-label="Remove saved location">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="onboarding-footer">
+        <p class="modal-error" id="onboarding-error" hidden></p>
+        <button class="btn-dark" id="onboarding-finish-btn">Finish setup</button>
+      </div>
     </div>
     <div class="modal-overlay" id="add-job-modal" hidden>
       <div class="modal">

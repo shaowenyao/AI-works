@@ -56,6 +56,39 @@ const resumeRemoveBtn = document.getElementById("resume-remove-btn");
 const resumeFileInput = document.getElementById("resume-file-input");
 const resumeUploadBtn = document.getElementById("resume-upload-btn");
 const resumeError = document.getElementById("resume-error");
+const getStartedBtn = document.getElementById("get-started-btn");
+const onboardingPanel = document.getElementById("onboarding-panel");
+const onboardingFinishBtn = document.getElementById("onboarding-finish-btn");
+const onboardingResumeCurrentRow = document.getElementById("onboarding-resume-current-row");
+const onboardingResumeCurrentLink = document.getElementById("onboarding-resume-current-link");
+const onboardingResumeRemoveBtn = document.getElementById("onboarding-resume-remove-btn");
+const onboardingResumeFileInput = document.getElementById("onboarding-resume-file-input");
+const onboardingResumeUploadBtn = document.getElementById("onboarding-resume-upload-btn");
+const onboardingResumeError = document.getElementById("onboarding-resume-error");
+const onboardingScanCityInput = document.getElementById("onboarding-scan-city-input");
+const onboardingScanRadiusSelect = document.getElementById("onboarding-scan-radius-select");
+const onboardingScanLocationCurrentRow = document.getElementById("onboarding-scan-location-current");
+const onboardingScanLocationCurrentLabel = document.getElementById("onboarding-scan-location-current-label");
+const onboardingScanLocationRemoveBtn = document.getElementById("onboarding-scan-location-remove-btn");
+const onboardingCompaniesRequired = document.getElementById("onboarding-companies-required");
+const onboardingTitleRequired = document.getElementById("onboarding-title-required");
+const onboardingResumeRequired = document.getElementById("onboarding-resume-required");
+const onboardingLocationRequired = document.getElementById("onboarding-location-required");
+const onboardingError = document.getElementById("onboarding-error");
+const filterRowEl = document.querySelector(".filter-row");
+const pageFooterEl = document.querySelector(".page-footer");
+// Gates the job list on all 4 tabs behind the onboarding panel once "Get
+// Started" is clicked — see openOnboarding/closeOnboarding and the guard at
+// the top of renderJobs().
+let onboardingActive = false;
+// Which of the 4 steps get a red "*" and are enforced on Finish setup —
+// decided once, at the moment the panel opens, per step: a step already has
+// "existing user information" (some companies, some title terms, a resume,
+// a location) isn't required even if it gets cleared back out during this
+// session, but a step that started empty must be filled in before Finish
+// setup succeeds. See openOnboarding and the validation in the finish-btn
+// handler below.
+let onboardingRequired = { companies: false, title: false, resume: false, location: false };
 let currentTab = "current";
 // The job.id most recently added via URL import — pinned above the usual
 // priority/favorite sort in renderJobs() so it's guaranteed visible at the
@@ -89,10 +122,15 @@ applyNoticeDismissBtn.addEventListener("click", () => {
 let demoMode = localStorage.getItem("demoMode") === "true";
 demoModeToggle.checked = demoMode;
 dummyBtnLabel.textContent = demoMode ? "Add demo job" : "Add job";
+// The onboarding walkthrough (see openOnboarding below) is only offered in
+// Demo mode — it's for testing/demoing the first-run setup flow, not a real
+// account-onboarding feature yet.
+getStartedBtn.hidden = !demoMode;
 demoModeToggle.addEventListener("change", () => {
   demoMode = demoModeToggle.checked;
   localStorage.setItem("demoMode", String(demoMode));
   dummyBtnLabel.textContent = demoMode ? "Add demo job" : "Add job";
+  if (!onboardingActive) getStartedBtn.hidden = !demoMode;
   renderJobs();
 });
 
@@ -322,6 +360,11 @@ let allJobs = [];
 const pendingVerifiedJobIds = new Set();
 
 function renderJobs() {
+  // The onboarding panel replaces the job list on every tab until "Finish
+  // setup" — everything else (filter-row, jobs, pagination) stays hidden
+  // and untouched by whatever triggered this render (tab switch, filter
+  // change, reload) rather than fighting that visibility.
+  if (onboardingActive) return;
   const query = searchQueries[currentTab].trim().toLowerCase();
 
   // Any job added via URL import (job.manually_imported, persisted — not
@@ -694,48 +737,59 @@ let jobSettingsDraft = { priorityCompanies: [], bannedCompanies: [], includeTerm
 // anything from what gets saved.
 const termSearchQueries = { priorityCompanies: "", bannedCompanies: "", includeTerms: "", excludeTerms: "" };
 
+// The Companies/Job Title accordions each appear twice in the DOM now — once
+// in the Job Settings drawer, once in the onboarding panel (same `key`s,
+// both driven off the one shared jobSettingsDraft) — so every render/count/
+// collapse helper here updates *all* matching instances via querySelectorAll,
+// not just the first one, to keep both in sync automatically.
 function renderTermList(key) {
-  const container = document.querySelector(`[data-list-el="${key}"]`);
   const isBanList = key === "bannedCompanies" || key === "excludeTerms";
   const allItems = jobSettingsDraft[key];
   const query = termSearchQueries[key];
   const items = query ? allItems.filter((item) => item.toLowerCase().includes(query)) : allItems;
-  if (allItems.length === 0) {
-    container.innerHTML = `<span class="term-empty">None yet</span>`;
-    return;
-  }
-  if (items.length === 0) {
-    container.innerHTML = `<span class="term-empty">No matches</span>`;
-    return;
-  }
-  container.innerHTML = items
-    .map(
-      (item) => `
+  const html =
+    allItems.length === 0
+      ? `<span class="term-empty">None yet</span>`
+      : items.length === 0
+        ? `<span class="term-empty">No matches</span>`
+        : items
+            .map(
+              (item) => `
         <span class="term-chip ${isBanList ? "ban-color" : "add-color"}">
           ${escapeHtml(item)}
           <button class="term-chip-remove" data-remove="${key}" data-value="${escapeHtml(item)}" aria-label="Remove ${escapeHtml(item)}">${icons.x}</button>
         </span>
       `,
-    )
-    .join("");
+            )
+            .join("");
+  document.querySelectorAll(`[data-list-el="${key}"]`).forEach((container) => {
+    container.innerHTML = html;
+  });
 }
 
 function updateTermCount(key) {
-  const countEl = document.querySelector(`[data-count="${key}"]`);
-  if (countEl) countEl.textContent = `(${jobSettingsDraft[key].length})`;
+  document.querySelectorAll(`[data-count="${key}"]`).forEach((countEl) => {
+    countEl.textContent = `(${jobSettingsDraft[key].length})`;
+  });
 }
 
-// Every accordion is collapsed by default every time the drawer opens —
-// with 100+ companies possible in "Included Companies" alone, showing
-// every list expanded made the drawer unusably long. Search box and "+"
-// add button only make sense (and only show, since they're inside the same
+// Every accordion is collapsed by default every time the drawer/onboarding
+// panel opens — with 100+ companies possible in "Included Companies" alone,
+// showing every list expanded made it unusably long. Search box and "+" add
+// button only make sense (and only show, since they're inside the same
 // body) once a section is actually open.
 function setSectionCollapsed(key, collapsed) {
-  const toggle = document.querySelector(`[data-collapse-toggle="${key}"]`);
-  const body = document.querySelector(`[data-accordion-body="${key}"]`);
-  toggle.setAttribute("aria-expanded", String(!collapsed));
-  body.hidden = collapsed;
-  if (collapsed) document.querySelector(`[data-input-for="${key}"]`).hidden = true;
+  document.querySelectorAll(`[data-collapse-toggle="${key}"]`).forEach((toggle) => {
+    toggle.setAttribute("aria-expanded", String(!collapsed));
+  });
+  document.querySelectorAll(`[data-accordion-body="${key}"]`).forEach((body) => {
+    body.hidden = collapsed;
+  });
+  if (collapsed) {
+    document.querySelectorAll(`[data-input-for="${key}"]`).forEach((row) => {
+      row.hidden = true;
+    });
+  }
 }
 
 document.querySelectorAll(".term-collapse-toggle").forEach((toggle) => {
@@ -805,50 +859,56 @@ drawerTabButtons.forEach((btn) => {
   });
 });
 
+// Unlike the render/count/collapse helpers above, the add-button/input-row
+// interactions below are scoped to whichever accordion instance (drawer vs.
+// onboarding) was actually clicked/typed in — via .closest(".term-accordion-body")
+// — rather than a global lookup by key, since two instances can share the
+// same key and a global document.querySelector would always resolve to
+// whichever one happens to be first in the DOM.
 document.querySelectorAll(".term-add-btn").forEach((btn) => {
   btn.addEventListener("click", () => {
     const key = btn.dataset.list;
-    const row = document.querySelector(`[data-input-for="${key}"]`);
+    const row = btn.closest(".term-accordion-body").querySelector(`[data-input-for="${key}"]`);
     row.hidden = !row.hidden;
     if (!row.hidden) row.querySelector("input").focus();
   });
 });
 
-function addTermFromInput(key) {
-  const input = document.querySelector(`[data-input="${key}"]`);
+function addTermFromInput(key, scope) {
+  const input = scope.querySelector(`[data-input="${key}"]`);
   const value = input.value.trim();
   if (!value) return;
   const exists = jobSettingsDraft[key].some((v) => v.toLowerCase() === value.toLowerCase());
   if (!exists) jobSettingsDraft[key].push(value);
   input.value = "";
-  document.querySelector(`[data-input-for="${key}"]`).hidden = true;
+  scope.querySelector(`[data-input-for="${key}"]`).hidden = true;
   renderTermList(key);
   updateTermCount(key);
 }
 
 document.querySelectorAll("[data-confirm]").forEach((btn) => {
-  btn.addEventListener("click", () => addTermFromInput(btn.dataset.confirm));
+  btn.addEventListener("click", () => addTermFromInput(btn.dataset.confirm, btn.closest(".term-accordion-body")));
 });
 
 document.querySelectorAll("[data-input]").forEach((input) => {
   input.addEventListener("keydown", (e) => {
     if (e.key === "Enter") {
       e.preventDefault();
-      addTermFromInput(input.dataset.input);
+      addTermFromInput(input.dataset.input, input.closest(".term-accordion-body"));
     }
   });
 });
 
-document.querySelectorAll(".drawer-body").forEach((body) => {
-  body.addEventListener("click", (e) => {
-    const removeBtn = e.target.closest("[data-remove]");
-    if (!removeBtn) return;
-    const key = removeBtn.dataset.remove;
-    const value = removeBtn.dataset.value;
-    jobSettingsDraft[key] = jobSettingsDraft[key].filter((v) => v !== value);
-    renderTermList(key);
-    updateTermCount(key);
-  });
+// Delegated globally (rather than scoped to .drawer-body) so it also covers
+// the onboarding panel's copy of these chips.
+document.addEventListener("click", (e) => {
+  const removeBtn = e.target.closest("[data-remove]");
+  if (!removeBtn) return;
+  const key = removeBtn.dataset.remove;
+  const value = removeBtn.dataset.value;
+  jobSettingsDraft[key] = jobSettingsDraft[key].filter((v) => v !== value);
+  renderTermList(key);
+  updateTermCount(key);
 });
 
 jobSettingsSaveBtn.addEventListener("click", async () => {
@@ -891,26 +951,40 @@ jobSettingsSaveBtn.addEventListener("click", async () => {
 
 // --- User Settings drawer ---------------------------------------------
 
+// Updates both the User Settings drawer's copy and the onboarding panel's
+// copy together — same underlying resume, shown in two places.
 function renderResumeState(resumeFilename) {
-  if (resumeFilename) {
-    resumeCurrentLink.href = `/webapp-docs/${encodeURIComponent(resumeFilename)}`;
-    resumeCurrentLink.textContent = resumeFilename;
-    resumeCurrentRow.hidden = false;
-  } else {
-    resumeCurrentRow.hidden = true;
-  }
+  [
+    [resumeCurrentRow, resumeCurrentLink],
+    [onboardingResumeCurrentRow, onboardingResumeCurrentLink],
+  ].forEach(([row, link]) => {
+    if (resumeFilename) {
+      link.href = `/webapp-docs/${encodeURIComponent(resumeFilename)}`;
+      link.textContent = resumeFilename;
+      row.hidden = false;
+    } else {
+      row.hidden = true;
+    }
+  });
 }
 
 // Shows the currently saved scan location as a chip (same look as the
 // Job Settings company/term chips) so it's clear at a glance whether one is
 // set — with an X to clear it, since only ever one location applies here.
+// Updates both the drawer's copy and the onboarding panel's copy.
 function renderScanLocationChip(city, radiusMiles) {
-  if (!city) {
-    userScanLocationCurrentRow.hidden = true;
-    return;
-  }
-  userScanLocationCurrentLabel.textContent = radiusMiles ? `${city} · Within ${radiusMiles} mi` : city;
-  userScanLocationCurrentRow.hidden = false;
+  const label = radiusMiles ? `${city} · Within ${radiusMiles} mi` : city;
+  [
+    [userScanLocationCurrentRow, userScanLocationCurrentLabel],
+    [onboardingScanLocationCurrentRow, onboardingScanLocationCurrentLabel],
+  ].forEach(([row, labelEl]) => {
+    if (!city) {
+      row.hidden = true;
+      return;
+    }
+    labelEl.textContent = label;
+    row.hidden = false;
+  });
 }
 
 async function openUserSettingsDrawer() {
@@ -933,11 +1007,18 @@ async function openUserSettingsDrawer() {
   userSettingsOverlay.hidden = false;
 }
 
-userScanLocationRemoveBtn.addEventListener("click", () => {
-  userScanCityInput.value = "";
-  userScanRadiusSelect.value = "0";
-  userScanLocationCurrentRow.hidden = true;
-});
+function clearScanLocationInputs(cityInput, radiusSelect, currentRow) {
+  cityInput.value = "";
+  radiusSelect.value = "0";
+  currentRow.hidden = true;
+}
+
+userScanLocationRemoveBtn.addEventListener("click", () =>
+  clearScanLocationInputs(userScanCityInput, userScanRadiusSelect, userScanLocationCurrentRow),
+);
+onboardingScanLocationRemoveBtn.addEventListener("click", () =>
+  clearScanLocationInputs(onboardingScanCityInput, onboardingScanRadiusSelect, onboardingScanLocationCurrentRow),
+);
 
 function closeUserSettingsDrawer() {
   userSettingsOverlay.hidden = true;
@@ -1002,15 +1083,17 @@ function fileToBase64(file) {
   });
 }
 
-resumeUploadBtn.addEventListener("click", async () => {
-  const file = resumeFileInput.files[0];
+// Shared by the User Settings drawer's resume upload and the onboarding
+// panel's copy of it — same endpoint, same behavior, different elements.
+async function uploadResume(fileInputEl, errorEl, uploadBtnEl) {
+  const file = fileInputEl.files[0];
   if (!file) {
-    resumeError.textContent = "Choose a file first.";
-    resumeError.hidden = false;
+    errorEl.textContent = "Choose a file first.";
+    errorEl.hidden = false;
     return;
   }
-  resumeUploadBtn.disabled = true;
-  resumeError.hidden = true;
+  uploadBtnEl.disabled = true;
+  errorEl.hidden = true;
   try {
     const dataBase64 = await fileToBase64(file);
     const res = await fetch("/api/user-settings/resume", {
@@ -1021,25 +1104,146 @@ resumeUploadBtn.addEventListener("click", async () => {
     const result = await res.json();
     if (!res.ok) throw new Error(result.error ?? "Upload failed.");
     renderResumeState(result.resumeFilename);
-    resumeFileInput.value = "";
+    fileInputEl.value = "";
   } catch (err) {
-    resumeError.textContent = err.message;
-    resumeError.hidden = false;
+    errorEl.textContent = err.message;
+    errorEl.hidden = false;
   } finally {
-    resumeUploadBtn.disabled = false;
+    uploadBtnEl.disabled = false;
   }
-});
+}
 
-resumeRemoveBtn.addEventListener("click", async () => {
+async function removeResume(removeBtnEl) {
   if (!confirm("Remove the uploaded resume?")) return;
-  resumeRemoveBtn.disabled = true;
+  removeBtnEl.disabled = true;
   try {
     await fetch("/api/user-settings/resume", { method: "DELETE" });
     renderResumeState(null);
   } catch (err) {
     alert(`Failed to remove resume: ${err.message}`);
   } finally {
-    resumeRemoveBtn.disabled = false;
+    removeBtnEl.disabled = false;
+  }
+}
+
+resumeUploadBtn.addEventListener("click", () => uploadResume(resumeFileInput, resumeError, resumeUploadBtn));
+resumeRemoveBtn.addEventListener("click", () => removeResume(resumeRemoveBtn));
+onboardingResumeUploadBtn.addEventListener("click", () =>
+  uploadResume(onboardingResumeFileInput, onboardingResumeError, onboardingResumeUploadBtn),
+);
+onboardingResumeRemoveBtn.addEventListener("click", () => removeResume(onboardingResumeRemoveBtn));
+
+// --- Onboarding panel (Demo mode only) ---------------------------------
+
+// Loads the same data the Job Settings/User Settings drawers show, into the
+// onboarding panel's copies of that same UI (see the render* broadcast
+// helpers above), then hides the job list on every tab in favor of the
+// panel until "Finish setup".
+async function openOnboarding() {
+  onboardingActive = true;
+  getStartedBtn.hidden = true;
+  filterRowEl.hidden = true;
+  applyNoticeEl.hidden = true;
+  emptyEl.hidden = true;
+  jobsEl.hidden = true;
+  pageFooterEl.hidden = true;
+  onboardingPanel.hidden = false;
+  ["priorityCompanies", "bannedCompanies", "includeTerms", "excludeTerms"].forEach((key) => {
+    termSearchQueries[key] = "";
+    setSectionCollapsed(key, true);
+  });
+  document.querySelectorAll("[data-term-search]").forEach((input) => {
+    input.value = "";
+  });
+  onboardingError.hidden = true;
+  try {
+    jobSettingsDraft = await (await fetch("/api/jobs/job-settings")).json();
+    renderAllTermLists();
+    const settings = await (await fetch("/api/user-settings")).json();
+    const city = settings.scanLocation?.city ?? "";
+    const radiusMiles = settings.scanLocation?.radiusMiles ?? 0;
+    onboardingScanCityInput.value = city;
+    onboardingScanRadiusSelect.value = String(radiusMiles);
+    renderScanLocationChip(city, radiusMiles);
+    renderResumeState(settings.resumeFilename);
+    // A step is only ever required because it started with nothing in it —
+    // decided here, once, from what was just loaded, not re-checked against
+    // "current" data later (see the comment on the declaration above).
+    onboardingRequired = {
+      companies: jobSettingsDraft.priorityCompanies.length === 0,
+      title: jobSettingsDraft.includeTerms.length === 0,
+      resume: !settings.resumeFilename,
+      location: !city,
+    };
+    onboardingCompaniesRequired.hidden = !onboardingRequired.companies;
+    onboardingTitleRequired.hidden = !onboardingRequired.title;
+    onboardingResumeRequired.hidden = !onboardingRequired.resume;
+    onboardingLocationRequired.hidden = !onboardingRequired.location;
+  } catch (err) {
+    alert(`Failed to load onboarding data: ${err.message}`);
+  }
+  window.scrollTo(0, 0);
+}
+
+function closeOnboarding() {
+  onboardingActive = false;
+  onboardingPanel.hidden = true;
+  filterRowEl.hidden = false;
+  jobsEl.hidden = false;
+  pageFooterEl.hidden = false;
+  getStartedBtn.hidden = !demoMode;
+}
+
+getStartedBtn.addEventListener("click", openOnboarding);
+
+onboardingFinishBtn.addEventListener("click", async () => {
+  // Only steps that started with nothing in them are enforced (see
+  // onboardingRequired) — checked against current values, so filling one in
+  // and clicking Finish setup clears its error immediately.
+  const missing = [];
+  if (onboardingRequired.companies && jobSettingsDraft.priorityCompanies.length === 0) missing.push("Add companies");
+  if (onboardingRequired.title && jobSettingsDraft.includeTerms.length === 0) missing.push("Add job title");
+  if (onboardingRequired.resume && onboardingResumeCurrentRow.hidden) missing.push("Add resume");
+  if (onboardingRequired.location && !onboardingScanCityInput.value.trim()) missing.push("Add locations");
+  if (missing.length > 0) {
+    onboardingError.textContent = `Please complete before continuing: ${missing.join(", ")}.`;
+    onboardingError.hidden = false;
+    return;
+  }
+  onboardingError.hidden = true;
+
+  const originalHTML = onboardingFinishBtn.innerHTML;
+  onboardingFinishBtn.disabled = true;
+  onboardingFinishBtn.innerHTML = `<span class="spinner"></span> Saving & scanning...`;
+  try {
+    // Same two saves as the Job Settings and User Settings drawers' own Save
+    // buttons, just combined into one step here.
+    let res = await fetch("/api/jobs/job-settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(jobSettingsDraft),
+    });
+    if (!res.ok) throw new Error((await res.json()).error ?? "Save failed.");
+    res = await fetch("/api/user-settings/scan-location", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        city: onboardingScanCityInput.value.trim(),
+        radiusMiles: Number(onboardingScanRadiusSelect.value),
+      }),
+    });
+    if (!res.ok) throw new Error((await res.json()).error ?? "Save failed.");
+    closeOnboarding();
+    landOnNewJobsTab();
+    await loadJobs();
+    applyNoticeTextEl.textContent = "You're all set — new jobs have been pulled based on your settings.";
+    applyNoticeEl.hidden = false;
+    window.scrollTo(0, 0);
+  } catch (err) {
+    alert(`Failed to finish setup: ${err.message}`);
+  } finally {
+    onboardingFinishBtn.disabled = false;
+    onboardingFinishBtn.innerHTML = originalHTML;
   }
 });
 
