@@ -372,6 +372,11 @@ export function insertDummyJob(locationType: "remote" | "local" = "remote"): Job
     location,
     isRemote: isRemoteConfirmed({ location }),
     isLocalSf: isLocalToSf({ location }),
+    // Same bypass URL-imported jobs get — otherwise a persistent Scan
+    // location (User Settings) can silently hide a dummy job whose fake
+    // location doesn't happen to match it, breaking the "guaranteed to
+    // show up" promise above.
+    manuallyImported: true,
   });
 
   return db.prepare("SELECT * FROM jobs WHERE url = ?").get(url) as unknown as JobRow;
