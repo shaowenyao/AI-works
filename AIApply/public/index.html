@@ -417,6 +417,27 @@
         font-size: 0.8rem;
         color: var(--ios-label);
       }
+      /* The "how sourcing works" callout at the top of Add companies/Add
+         job title (onboarding) and the matching Job Settings tabs — same
+         copy in both places so it's not something you only see once during
+         setup. */
+      .source-info-box {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.55rem;
+        background: var(--ios-blue-tint);
+        border-radius: var(--ios-radius-sm);
+        padding: 0.65rem 0.85rem;
+        margin: 0 0 0.9rem;
+        font-size: 0.78rem;
+        line-height: 1.45;
+        color: var(--ios-label);
+      }
+      .source-info-box svg {
+        flex-shrink: 0;
+        color: var(--ios-blue);
+        margin-top: 0.1rem;
+      }
       .modal-error {
         margin: 0.6rem 0 0;
         font-size: 0.8rem;
@@ -737,6 +758,74 @@
         gap: 0.5rem;
         margin-bottom: 0.7rem;
       }
+      /* The "Add a category" reference row above Included/Excluded
+         Companies — same look as .term-section-toolbar (reuses
+         .term-search-input/.term-add-btn) but sits outside the accordions;
+         it's purely informational and never touches priorityCompanies. */
+      .category-add-row {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 0.9rem;
+      }
+      /* Live preview of what a typed category will actually add — updates
+         on input, see the [data-category-input] listener in app.js. */
+      .category-preview {
+        margin: -0.5rem 0 0.9rem;
+        padding: 0.55rem 0.75rem;
+        background: var(--ios-fill);
+        border-radius: var(--ios-radius-sm);
+        font-size: 0.76rem;
+        line-height: 1.4;
+        color: var(--ios-secondary-label);
+      }
+      .category-preview[hidden] {
+        display: none;
+      }
+      .category-preview strong {
+        color: var(--ios-label);
+      }
+      /* Each added category renders as an always-open block (not a
+         collapsible pill/chip) — name + its full company list stay visible
+         the whole time it's selected, specifically so the user can actually
+         read who's in it and decide what to exclude, rather than having to
+         retype the category to see the list again. */
+      .category-list {
+        margin-bottom: 0.9rem;
+      }
+      .category-block {
+        background: var(--ios-fill);
+        border-radius: var(--ios-radius-sm);
+        padding: 0.6rem 0.8rem;
+        margin-bottom: 0.5rem;
+      }
+      .category-block-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: var(--ios-label);
+      }
+      .category-block-remove {
+        border: none;
+        background: none;
+        cursor: pointer;
+        color: var(--ios-secondary-label);
+        font-size: 1rem;
+        line-height: 1;
+        padding: 0.2rem;
+        flex-shrink: 0;
+      }
+      .category-block-remove:hover {
+        color: var(--ios-label);
+      }
+      .category-block-companies {
+        margin: 0.35rem 0 0;
+        font-size: 0.78rem;
+        line-height: 1.45;
+        color: var(--ios-secondary-label);
+      }
       .term-search-input {
         flex: 1;
         border: none;
@@ -777,23 +866,6 @@
       .term-add-btn.add-color:hover,
       .term-add-btn.ban-color:hover {
         background: #3a3a3c;
-      }
-      .term-input-row {
-        display: flex;
-        gap: 0.4rem;
-        margin-bottom: 0.6rem;
-      }
-      .term-input-row[hidden] {
-        display: none;
-      }
-      .term-input-row input {
-        flex: 1;
-        border: none;
-        background: var(--ios-fill);
-        border-radius: var(--ios-radius-sm);
-        padding: 0.42rem 0.6rem;
-        font-size: 0.82rem;
-        color: var(--ios-label);
       }
       .term-list {
         display: flex;
@@ -1257,6 +1329,11 @@
           <option value="KPMG"></option>
           <option value="Accenture"></option>
         </datalist>
+        <!-- Populated from COMPANY_CATEGORIES' keys in app.js, not hardcoded
+             here — the category -> company mapping itself lives in
+             public/shared/companyCategories.js and is never shown in the
+             UI, only these category names are. -->
+        <datalist id="company-categories"></datalist>
         <datalist id="job-title-suggestions">
           <!-- Design -->
           <option value="Product Designer"></option>
@@ -1448,6 +1525,21 @@
         <div class="onboarding-column">
           <div class="onboarding-step">
             <h3>Add companies <span class="required-star" id="onboarding-companies-required" hidden>*</span></h3>
+            <h3 class="settings-section-title category-add-title">Categories</h3>
+            <div class="source-info-box">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+              <span>Pick a general category (like Tech or Construction) to see which companies are commonly tracked in that space — the list shows up here as you type. This is reference only: none of them get added to your Included Companies list below, so if you'd rather not see a specific one, add it to Excluded Companies yourself.</span>
+            </div>
+            <div class="category-add-row">
+              <input type="text" class="term-search-input" data-category-input list="company-categories" name="company-category" autocomplete="off" placeholder="Add a category (e.g. Tech, Construction)" />
+              <button class="term-add-btn add-color" data-category-add aria-label="Add category">+</button>
+            </div>
+            <p class="category-preview" data-category-preview hidden></p>
+            <div class="category-list" data-list-el="categories"></div>
+            <div class="source-info-box">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+              <span>We pull postings straight from each company's own career page (Greenhouse, Lever, Ashby, SmartRecruiters, BambooHR). Add companies here to flag them as priority — they'll float to the top of your list.</span>
+            </div>
             <div class="term-accordion add-color">
               <button class="term-collapse-toggle" data-collapse-toggle="priorityCompanies" aria-expanded="false">
                 <svg class="term-collapse-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
@@ -1459,12 +1551,12 @@
                   <input type="text" class="term-search-input" data-term-search="priorityCompanies" name="search-priority-companies" list="company-suggestions" autocomplete="on" placeholder="Search companies to add" />
                   <button class="term-add-btn add-color" data-list="priorityCompanies" aria-label="Add company">+</button>
                 </div>
-                <div class="term-input-row" data-input-for="priorityCompanies" hidden>
-                  <input type="text" placeholder="Company name" data-input="priorityCompanies" name="company-name" list="company-suggestions" autocomplete="organization" />
-                  <button class="btn-dark" data-confirm="priorityCompanies">Add</button>
-                </div>
                 <div class="term-list" data-list-el="priorityCompanies"></div>
               </div>
+            </div>
+            <div class="source-info-box">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+              <span>Companies you'd rather not see at all — postings from these are filtered out completely, even if they'd otherwise match.</span>
             </div>
             <div class="term-accordion ban-color">
               <button class="term-collapse-toggle" data-collapse-toggle="bannedCompanies" aria-expanded="false">
@@ -1477,16 +1569,16 @@
                   <input type="text" class="term-search-input" data-term-search="bannedCompanies" name="search-banned-companies" list="company-suggestions" autocomplete="on" placeholder="Search companies to ban" />
                   <button class="term-add-btn ban-color" data-list="bannedCompanies" aria-label="Ban company">+</button>
                 </div>
-                <div class="term-input-row" data-input-for="bannedCompanies" hidden>
-                  <input type="text" placeholder="Company name" data-input="bannedCompanies" name="company-name" list="company-suggestions" autocomplete="organization" />
-                  <button class="btn-dark" data-confirm="bannedCompanies">Add</button>
-                </div>
                 <div class="term-list" data-list-el="bannedCompanies"></div>
               </div>
             </div>
           </div>
           <div class="onboarding-step">
             <h3>Add job title <span class="required-star" id="onboarding-title-required" hidden>*</span></h3>
+            <div class="source-info-box">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+              <span>Only postings matching these terms make it into your list. Add the titles you're looking for, and exclude terms like "Senior" or "Recruiter" to filter out roles that aren't a fit.</span>
+            </div>
             <div class="term-accordion add-color">
               <button class="term-collapse-toggle" data-collapse-toggle="includeTerms" aria-expanded="false">
                 <svg class="term-collapse-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
@@ -1497,10 +1589,6 @@
                 <div class="term-section-toolbar">
                   <input type="text" class="term-search-input" data-term-search="includeTerms" name="search-include-terms" list="job-title-suggestions" autocomplete="on" placeholder="Search included terms" />
                   <button class="term-add-btn add-color" data-list="includeTerms" aria-label="Add term">+</button>
-                </div>
-                <div class="term-input-row" data-input-for="includeTerms" hidden>
-                  <input type="text" placeholder="e.g. Brand Designer" data-input="includeTerms" name="job-title-term" list="job-title-suggestions" autocomplete="organization-title" />
-                  <button class="btn-dark" data-confirm="includeTerms">Add</button>
                 </div>
                 <div class="term-list" data-list-el="includeTerms"></div>
               </div>
@@ -1515,10 +1603,6 @@
                 <div class="term-section-toolbar">
                   <input type="text" class="term-search-input" data-term-search="excludeTerms" name="search-exclude-terms" list="job-title-suggestions" autocomplete="on" placeholder="Search excluded terms" />
                   <button class="term-add-btn ban-color" data-list="excludeTerms" aria-label="Ban term">+</button>
-                </div>
-                <div class="term-input-row" data-input-for="excludeTerms" hidden>
-                  <input type="text" placeholder="e.g. Recruiter" data-input="excludeTerms" name="job-title-term" list="job-title-suggestions" autocomplete="organization-title" />
-                  <button class="btn-dark" data-confirm="excludeTerms">Add</button>
                 </div>
                 <div class="term-list" data-list-el="excludeTerms"></div>
               </div>
@@ -1597,6 +1681,21 @@
         </div>
         <div class="drawer-body">
           <div class="drawer-pane" id="drawer-pane-companies">
+            <h3 class="settings-section-title category-add-title">Categories</h3>
+            <div class="source-info-box">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+              <span>Pick a general category (like Tech or Construction) to see which companies are commonly tracked in that space — the list shows up here as you type. This is reference only: none of them get added to your Included Companies list below, so if you'd rather not see a specific one, add it to Excluded Companies yourself.</span>
+            </div>
+            <div class="category-add-row">
+              <input type="text" class="term-search-input" data-category-input list="company-categories" name="company-category" autocomplete="off" placeholder="Add a category (e.g. Tech, Construction)" />
+              <button class="term-add-btn add-color" data-category-add aria-label="Add category">+</button>
+            </div>
+            <p class="category-preview" data-category-preview hidden></p>
+            <div class="category-list" data-list-el="categories"></div>
+            <div class="source-info-box">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+              <span>We pull postings straight from each company's own career page (Greenhouse, Lever, Ashby, SmartRecruiters, BambooHR). Add companies here to flag them as priority — they'll float to the top of your list.</span>
+            </div>
             <div class="term-accordion add-color">
               <button class="term-collapse-toggle" data-collapse-toggle="priorityCompanies" aria-expanded="false">
                 <svg class="term-collapse-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
@@ -1608,12 +1707,12 @@
                   <input type="text" class="term-search-input" data-term-search="priorityCompanies" name="search-priority-companies" list="company-suggestions" autocomplete="on" placeholder="Search companies to add" />
                   <button class="term-add-btn add-color" data-list="priorityCompanies" aria-label="Add company">+</button>
                 </div>
-                <div class="term-input-row" data-input-for="priorityCompanies" hidden>
-                  <input type="text" placeholder="Company name" data-input="priorityCompanies" name="company-name" list="company-suggestions" autocomplete="organization" />
-                  <button class="btn-dark" data-confirm="priorityCompanies">Add</button>
-                </div>
                 <div class="term-list" data-list-el="priorityCompanies"></div>
               </div>
+            </div>
+            <div class="source-info-box">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+              <span>Companies you'd rather not see at all — postings from these are filtered out completely, even if they'd otherwise match.</span>
             </div>
             <div class="term-accordion ban-color">
               <button class="term-collapse-toggle" data-collapse-toggle="bannedCompanies" aria-expanded="false">
@@ -1626,15 +1725,15 @@
                   <input type="text" class="term-search-input" data-term-search="bannedCompanies" name="search-banned-companies" list="company-suggestions" autocomplete="on" placeholder="Search companies to ban" />
                   <button class="term-add-btn ban-color" data-list="bannedCompanies" aria-label="Ban company">+</button>
                 </div>
-                <div class="term-input-row" data-input-for="bannedCompanies" hidden>
-                  <input type="text" placeholder="Company name" data-input="bannedCompanies" name="company-name" list="company-suggestions" autocomplete="organization" />
-                  <button class="btn-dark" data-confirm="bannedCompanies">Add</button>
-                </div>
                 <div class="term-list" data-list-el="bannedCompanies"></div>
               </div>
             </div>
           </div>
           <div class="drawer-pane" id="drawer-pane-title" hidden>
+            <div class="source-info-box">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+              <span>Only postings matching these terms make it into your list. Add the titles you're looking for, and exclude terms like "Senior" or "Recruiter" to filter out roles that aren't a fit.</span>
+            </div>
             <div class="term-accordion add-color">
               <button class="term-collapse-toggle" data-collapse-toggle="includeTerms" aria-expanded="false">
                 <svg class="term-collapse-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
@@ -1645,10 +1744,6 @@
                 <div class="term-section-toolbar">
                   <input type="text" class="term-search-input" data-term-search="includeTerms" name="search-include-terms" list="job-title-suggestions" autocomplete="on" placeholder="Search included terms" />
                   <button class="term-add-btn add-color" data-list="includeTerms" aria-label="Add term">+</button>
-                </div>
-                <div class="term-input-row" data-input-for="includeTerms" hidden>
-                  <input type="text" placeholder="e.g. Brand Designer" data-input="includeTerms" name="job-title-term" list="job-title-suggestions" autocomplete="organization-title" />
-                  <button class="btn-dark" data-confirm="includeTerms">Add</button>
                 </div>
                 <div class="term-list" data-list-el="includeTerms"></div>
               </div>
@@ -1663,10 +1758,6 @@
                 <div class="term-section-toolbar">
                   <input type="text" class="term-search-input" data-term-search="excludeTerms" name="search-exclude-terms" list="job-title-suggestions" autocomplete="on" placeholder="Search excluded terms" />
                   <button class="term-add-btn ban-color" data-list="excludeTerms" aria-label="Ban term">+</button>
-                </div>
-                <div class="term-input-row" data-input-for="excludeTerms" hidden>
-                  <input type="text" placeholder="e.g. Recruiter" data-input="excludeTerms" name="job-title-term" list="job-title-suggestions" autocomplete="organization-title" />
-                  <button class="btn-dark" data-confirm="excludeTerms">Add</button>
                 </div>
                 <div class="term-list" data-list-el="excludeTerms"></div>
               </div>

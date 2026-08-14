@@ -1,4 +1,5 @@
 import { isDesignTitle, matchesCityFilter } from "./shared/jobFilters.js";
+import { COMPANY_CATEGORIES } from "./shared/companyCategories.js";
 
 // Mirrors PIPELINE_STAGES in src/db/client.ts — the server validates against
 // its own copy, so this only controls what the dropdown offers, not what's
@@ -809,6 +810,12 @@ addJobCancelBtn.addEventListener("click", () => {
 // The in-progress edit — loaded fresh from the server each time the drawer
 // opens, only written back on Save (so closing without saving discards it).
 let jobSettingsDraft = { priorityCompanies: [], bannedCompanies: [], includeTerms: [], excludeTerms: [] };
+// Which categories are currently "added" — session-only, not sent to the
+// server (the server only ever sees the companies a category expanded
+// into, via priorityCompanies). Reset on every drawer/onboarding open, same
+// as jobSettingsDraft, so re-opening never shows a category as added that
+// wasn't actually re-selected this session.
+let selectedCategories = [];
 // Every Job Settings accordion (Companies' add/ban, Job Title's
 // include/exclude) has its own search box, scoped to just that list — with
 // 126+ companies possible in "Included Companies" alone, finding one by
@@ -866,11 +873,6 @@ function setSectionCollapsed(key, collapsed) {
   document.querySelectorAll(`[data-accordion-body="${key}"]`).forEach((body) => {
     body.hidden = collapsed;
   });
-  if (collapsed) {
-    document.querySelectorAll(`[data-input-for="${key}"]`).forEach((row) => {
-      row.hidden = true;
-    });
-  }
 }
 
 document.querySelectorAll(".term-collapse-toggle").forEach((toggle) => {
@@ -916,6 +918,14 @@ async function openJobSettingsDrawer() {
   document.querySelectorAll("[data-term-search]").forEach((input) => {
     input.value = "";
   });
+  selectedCategories = [];
+  document.querySelectorAll("[data-category-input]").forEach((input) => {
+    input.value = "";
+  });
+  document.querySelectorAll("[data-category-preview]").forEach((preview) => {
+    preview.hidden = true;
+  });
+  renderCategoryList();
   resumeError.hidden = true;
   resumeFileInput.value = "";
   try {
@@ -941,9 +951,6 @@ async function openJobSettingsDrawer() {
 
 function closeJobSettingsDrawer() {
   jobSettingsOverlay.hidden = true;
-  document.querySelectorAll(".term-input-row").forEach((row) => {
-    row.hidden = true;
-  });
 }
 
 jobSettingsBtn.addEventListener("click", openJobSettingsDrawer);
@@ -964,44 +971,158 @@ drawerTabButtons.forEach((btn) => {
   });
 });
 
-// Unlike the render/count/collapse helpers above, the add-button/input-row
-// interactions below are scoped to whichever accordion instance (drawer vs.
-// onboarding) was actually clicked/typed in — via .closest(".term-accordion-body")
-// — rather than a global lookup by key, since two instances can share the
-// same key and a global document.querySelector would always resolve to
-// whichever one happens to be first in the DOM.
-document.querySelectorAll(".term-add-btn").forEach((btn) => {
-  btn.addEventListener("click", () => {
-    const key = btn.dataset.list;
-    const row = btn.closest(".term-accordion-body").querySelector(`[data-input-for="${key}"]`);
-    row.hidden = !row.hidden;
-    if (!row.hidden) row.querySelector("input").focus();
-  });
-});
-
-function addTermFromInput(key, scope) {
-  const input = scope.querySelector(`[data-input="${key}"]`);
+// The search box doubles as the add box: typing filters the existing chips
+// live (see the [data-term-search] "input" listener above), and "+"/Enter
+// adds whatever's typed if it isn't already in the list. Replaces an
+// earlier two-step flow (click + to reveal a second input, type the same
+// thing again, click Add) that people found confusing. Scoped to whichever
+// accordion instance (drawer vs. onboarding) was actually used — via
+// .closest(".term-accordion-body") — rather than a global lookup by key,
+// since two instances share the same key and a global lookup would always
+// resolve to whichever one happens to be first in the DOM.
+function addTermFromSearch(key, scope) {
+  const input = scope.querySelector(`[data-term-search="${key}"]`);
   const value = input.value.trim();
   if (!value) return;
   const exists = jobSettingsDraft[key].some((v) => v.toLowerCase() === value.toLowerCase());
   if (!exists) jobSettingsDraft[key].push(value);
   input.value = "";
-  scope.querySelector(`[data-input-for="${key}"]`).hidden = true;
+  termSearchQueries[key] = "";
   renderTermList(key);
   updateTermCount(key);
 }
 
-document.querySelectorAll("[data-confirm]").forEach((btn) => {
-  btn.addEventListener("click", () => addTermFromInput(btn.dataset.confirm, btn.closest(".term-accordion-body")));
+// [data-list] excludes the "Add a category" button below — it also has
+// .term-add-btn for identical styling, but isn't inside a
+// .term-accordion-body (so .closest() would return null and crash) and has
+// its own dedicated handler.
+document.querySelectorAll(".term-add-btn[data-list]").forEach((btn) => {
+  btn.addEventListener("click", () => addTermFromSearch(btn.dataset.list, btn.closest(".term-accordion-body")));
 });
 
-document.querySelectorAll("[data-input]").forEach((input) => {
+document.querySelectorAll("[data-term-search]").forEach((input) => {
   input.addEventListener("keydown", (e) => {
     if (e.key === "Enter") {
       e.preventDefault();
-      addTermFromInput(input.dataset.input, input.closest(".term-accordion-body"));
+      addTermFromSearch(input.dataset.termSearch, input.closest(".term-accordion-body"));
     }
   });
+});
+
+// The category names populate this <datalist> — the company lists behind
+// each one stay in public/shared/companyCategories.js and are never
+// rendered anywhere in bulk, only surfaced one category at a time via the
+// live preview below, for whichever category is actually typed.
+const companyCategoriesDatalist = document.getElementById("company-categories");
+companyCategoriesDatalist.innerHTML = Object.keys(COMPANY_CATEGORIES)
+  .map((name) => `<option value="${escapeHtml(name)}"></option>`)
+  .join("");
+
+function matchCategory(typed) {
+  return Object.keys(COMPANY_CATEGORIES).find((name) => name.toLowerCase() === typed.trim().toLowerCase());
+}
+
+// Purely informational — these companies never get added to Included
+// Companies (see addCategoryFromInput), so the wording always makes that
+// explicit rather than implying anything gets added automatically. "Other"
+// (and any future category with no companies behind it) gets its own
+// message instead of an empty list.
+function categoryPreviewHtml(categoryName) {
+  const companies = COMPANY_CATEGORIES[categoryName];
+  return companies.length === 0
+    ? `<strong>${escapeHtml(categoryName)}:</strong> No commonly-tracked companies for this one — add your own manually via Included Companies below.`
+    : `<strong>${escapeHtml(categoryName)}:</strong> ${escapeHtml(companies.join(", "))} — none of these are added automatically; exclude any you don't want via Excluded Companies below.`;
+}
+
+// Shows which companies are commonly tracked in a category, live as it's
+// typed — so "see what's included as you type" (the info box above this
+// input) is true
+// before the user commits to anything.
+document.querySelectorAll("[data-category-input]").forEach((input) => {
+  const preview = input.closest(".onboarding-step, .drawer-pane").querySelector("[data-category-preview]");
+  input.addEventListener("input", () => {
+    const categoryName = matchCategory(input.value);
+    if (!categoryName) {
+      preview.hidden = true;
+      return;
+    }
+    preview.innerHTML = categoryPreviewHtml(categoryName);
+    preview.hidden = false;
+  });
+});
+
+// Renders selectedCategories as always-open blocks — not a pill/chip, since
+// the whole point is the user can actually read the company list to decide
+// what to exclude, not just see a name they'd have to retype to inspect
+// again. Each block stays visible the whole time it's selected; only the X
+// removes it. Not tied to Included Companies (see addCategoryFromInput
+// below for why). Broadcasts to every matching instance (onboarding vs.
+// drawer), since they share this one array.
+function renderCategoryList() {
+  const html =
+    selectedCategories.length === 0
+      ? `<span class="term-empty">None yet</span>`
+      : selectedCategories
+          .map((name) => {
+            const companies = COMPANY_CATEGORIES[name];
+            const companiesText =
+              companies.length === 0
+                ? "No commonly-tracked companies for this one — add your own manually via Included Companies below."
+                : companies.join(", ");
+            return `
+        <div class="category-block">
+          <div class="category-block-header">
+            <span>${escapeHtml(name)}</span>
+            <button class="category-block-remove" data-remove-category="${escapeHtml(name)}" aria-label="Remove ${escapeHtml(name)}">${icons.x}</button>
+          </div>
+          <p class="category-block-companies">${escapeHtml(companiesText)}</p>
+        </div>
+      `;
+          })
+          .join("");
+  document.querySelectorAll(`[data-list-el="categories"]`).forEach((container) => {
+    container.innerHTML = html;
+  });
+}
+
+// "Add a category" is reference-only — it does NOT add any company to
+// Included Companies. It just keeps a "Tech ×"-style label around so you
+// can see which categories you've looked at, with the live preview (see
+// categoryPreviewHtml) showing what's actually in it. If you want to keep
+// a specific company out of your results, add it to Excluded Companies
+// yourself — categories never do that automatically either. Scoped to
+// whichever instance (onboarding vs. drawer) was actually used, same
+// reasoning as the .term-add-btn handlers above.
+function addCategoryFromInput(triggerEl) {
+  const scope = triggerEl.closest(".onboarding-step, .drawer-pane");
+  const input = scope.querySelector("[data-category-input]");
+  const categoryName = matchCategory(input.value);
+  if (!categoryName || selectedCategories.includes(categoryName)) return;
+  selectedCategories.push(categoryName);
+  input.value = "";
+  scope.querySelector("[data-category-preview]").hidden = true;
+  renderCategoryList();
+}
+document.querySelectorAll("[data-category-add]").forEach((btn) => {
+  btn.addEventListener("click", () => addCategoryFromInput(btn));
+});
+document.querySelectorAll("[data-category-input]").forEach((input) => {
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      addCategoryFromInput(input);
+    }
+  });
+});
+
+// Delegated globally, same reasoning as the company/term chip remover below.
+// Just drops the label — there's nothing in priorityCompanies to undo,
+// since adding never touched it in the first place.
+document.addEventListener("click", (e) => {
+  const removeBtn = e.target.closest("[data-remove-category]");
+  if (!removeBtn) return;
+  selectedCategories = selectedCategories.filter((name) => name !== removeBtn.dataset.removeCategory);
+  renderCategoryList();
 });
 
 // Delegated globally (rather than scoped to .drawer-body) so it also covers
@@ -1225,6 +1346,14 @@ async function openOnboarding() {
   document.querySelectorAll("[data-term-search]").forEach((input) => {
     input.value = "";
   });
+  selectedCategories = [];
+  document.querySelectorAll("[data-category-input]").forEach((input) => {
+    input.value = "";
+  });
+  document.querySelectorAll("[data-category-preview]").forEach((preview) => {
+    preview.hidden = true;
+  });
+  renderCategoryList();
   onboardingError.hidden = true;
   try {
     jobSettingsDraft = await (await fetch("/api/jobs/job-settings")).json();
