@@ -132,42 +132,23 @@
         opacity: 0.5;
         cursor: default;
       }
-      .settings-wrap {
-        position: relative;
-      }
-      #settings-gear-btn {
-        padding: 0.5rem;
-      }
-      .settings-menu {
-        position: absolute;
-        top: calc(100% + 0.4rem);
-        right: 0;
-        min-width: 180px;
-        background: rgba(255, 255, 255, 0.85);
-        backdrop-filter: blur(20px);
-        -webkit-backdrop-filter: blur(20px);
-        border: none;
-        border-radius: 14px;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
-        padding: 0.4rem;
-        z-index: 20;
-      }
-      .settings-menu[hidden] {
-        display: none;
-      }
-      .settings-menu button {
-        display: flex;
-        width: 100%;
-        border: none;
+      /* The "Trust" checkbox on job cards is a plain, ordinary checkbox —
+         not an iOS toggle switch like the boolean-preference ones above —
+         so it reads as "check this box" rather than "flip this setting". */
+      input[type="checkbox"].legit-checkbox {
+        appearance: auto;
+        -webkit-appearance: auto;
+        width: 15px;
+        height: 15px;
         background: none;
-        padding: 0.6rem 0.7rem;
-        border-radius: 8px;
-        font-size: 0.85rem;
-        font-weight: 400;
-        text-align: left;
+        border-radius: 0;
+        flex-shrink: 0;
       }
-      .settings-menu button:hover {
-        background: var(--ios-fill);
+      input[type="checkbox"].legit-checkbox::before {
+        content: none;
+      }
+      #job-settings-btn {
+        padding: 0.5rem;
       }
       .card {
         background: var(--ios-card-bg);
@@ -195,6 +176,10 @@
         font-weight: 400;
         color: var(--ios-label);
       }
+      .verified-check {
+        vertical-align: -2px;
+        margin-right: 0.15rem;
+      }
       .title-link {
         color: inherit;
         text-decoration: none;
@@ -207,15 +192,6 @@
         align-items: center;
         gap: 0.6rem;
         flex-shrink: 0;
-      }
-      .priority {
-        display: inline-block;
-        font-size: 0.75rem;
-        font-weight: 600;
-        padding: 0.15rem 0.6rem;
-        border-radius: var(--ios-radius-pill);
-        background: var(--ios-blue-tint);
-        color: var(--ios-blue);
       }
       .status {
         display: inline-block;
@@ -288,7 +264,15 @@
       .actions a:hover {
         text-decoration: underline;
       }
-      .apply-error {
+      /* Per-card feedback slot — every job-card button (Generate Resume,
+         Apply, Favorite, pipeline status) reports its result here, inside
+         that same card, rather than a page-level banner, so the message
+         stays next to the button that triggered it. Only actions whose
+         success moves/removes the card itself (Apply, Exclude, Flag
+         company) fall back to the page banner, since there's no card left
+         to show a message in by the time it'd render. See showCardMessage/
+         queueCardMessage in app.js. */
+      .card-message {
         display: flex;
         align-items: center;
         justify-content: space-between;
@@ -301,8 +285,15 @@
         color: var(--ios-red-text);
         font-size: 0.85rem;
       }
-      .apply-error[hidden] {
+      .card-message[hidden] {
         display: none;
+      }
+      .card-message.tone-success {
+        background: var(--ios-green-tint);
+        color: var(--ios-green-text);
+      }
+      .card-message.tone-success .dismiss-error-btn {
+        color: var(--ios-green-text);
       }
       .favorite-btn {
         padding: 0.45rem 0.6rem;
@@ -319,29 +310,25 @@
       .dismiss-error-btn {
         border: none;
         background: none;
-        color: var(--ios-red-text);
+        color: var(--ios-label);
         font-size: 1.1rem;
         line-height: 1;
         cursor: pointer;
         padding: 0 0.2rem;
       }
       .exclude-btn,
-      .hide-btn,
       .flag-company-btn {
         display: inline-flex;
         align-items: center;
         justify-content: center;
         width: 2rem;
         padding: 0.4rem;
-      }
-      .exclude-btn,
-      .flag-company-btn {
-        color: var(--ios-red-text);
-        background: var(--ios-red-tint);
+        color: var(--ios-label);
+        background: var(--ios-fill);
       }
       .exclude-btn:hover:not(:disabled),
       .flag-company-btn:hover:not(:disabled) {
-        background: rgba(255, 59, 48, 0.2);
+        background: var(--ios-fill-strong);
       }
       .spinner {
         display: inline-block;
@@ -372,6 +359,23 @@
       }
       .apply-notice[hidden] {
         display: none;
+      }
+      /* Same banner element, swapped red for a failed action — see
+         showBanner() in app.js, which every button/action funnels through
+         instead of alert(). */
+      .apply-notice.tone-error {
+        background: var(--ios-red-tint);
+        color: var(--ios-red-text);
+      }
+      .apply-notice.tone-error .dismiss-notice-btn {
+        color: var(--ios-red-text);
+      }
+      /* The inline error slots inside modals/drawers (Add job, resume
+         upload/remove, Job settings save) reuse .modal-error for this same
+         success-message purpose via this tone — keeps one visual language
+         for "message below the button" everywhere, not just page-level. */
+      .modal-error.tone-success {
+        color: var(--ios-green-text);
       }
       .dismiss-notice-btn {
         border: none;
@@ -689,11 +693,9 @@
         background: var(--ios-card-bg);
         box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
       }
-      .term-accordion.add-color {
-        border-left-color: var(--ios-green);
-      }
+      .term-accordion.add-color,
       .term-accordion.ban-color {
-        border-left-color: var(--ios-red);
+        border-left-color: var(--ios-label);
       }
       .term-accordion .term-collapse-toggle {
         width: 100%;
@@ -768,17 +770,13 @@
       .term-add-btn[hidden] {
         display: none;
       }
-      .term-add-btn.add-color {
-        background: var(--ios-green);
-      }
-      .term-add-btn.add-color:hover {
-        background: #2aa147;
-      }
+      .term-add-btn.add-color,
       .term-add-btn.ban-color {
-        background: var(--ios-red);
+        background: var(--ios-label);
       }
+      .term-add-btn.add-color:hover,
       .term-add-btn.ban-color:hover {
-        background: #e0281d;
+        background: #3a3a3c;
       }
       .term-input-row {
         display: flex;
@@ -813,13 +811,10 @@
         padding: 0.3rem 0.4rem 0.3rem 0.7rem;
         font-size: 0.8rem;
       }
-      .term-chip.add-color {
-        background: var(--ios-green-tint);
-        color: var(--ios-green-text);
-      }
+      .term-chip.add-color,
       .term-chip.ban-color {
-        background: var(--ios-red-tint);
-        color: var(--ios-red-text);
+        background: var(--ios-fill);
+        color: var(--ios-label);
       }
       .term-chip-remove {
         border: none;
@@ -856,6 +851,30 @@
         color: var(--ios-label);
       }
       .scan-location-row input:focus {
+        outline: none;
+        box-shadow: 0 0 0 3px var(--ios-blue-tint);
+      }
+      .profile-fields-row {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 0.5rem;
+      }
+      .profile-fields-row input,
+      #user-email-input,
+      #onboarding-email-input {
+        flex: 1;
+        width: 100%;
+        border: none;
+        background: var(--ios-fill);
+        border-radius: var(--ios-radius-sm);
+        padding: 0.45rem 0.9rem;
+        font-size: 0.85rem;
+        color: var(--ios-label);
+        box-sizing: border-box;
+      }
+      .profile-fields-row input:focus,
+      #user-email-input:focus,
+      #onboarding-email-input:focus {
         outline: none;
         box-shadow: 0 0 0 3px var(--ios-blue-tint);
       }
@@ -961,6 +980,40 @@
       .required-star {
         color: var(--ios-red);
       }
+      .onboarding-footer-buttons {
+        display: flex;
+        gap: 0.6rem;
+      }
+      /* Shown in place of the whole form (see .onboarding-form-section)
+         while Finish setup is saving + rescanning — that round trip is real
+         (a full scan across every tracked company's job board), commonly
+         ~30s, so a plain disabled button with no other feedback reads as
+         hung. See startOnboardingProgress/stopOnboardingProgress in app.js. */
+      .onboarding-loading {
+        max-width: 420px;
+        margin: 4rem auto;
+        text-align: center;
+      }
+      .onboarding-progress-track {
+        width: 100%;
+        height: 8px;
+        background: var(--ios-fill);
+        border-radius: var(--ios-radius-pill);
+        overflow: hidden;
+      }
+      .onboarding-progress-fill {
+        height: 100%;
+        width: 6%;
+        background: var(--ios-blue);
+        border-radius: var(--ios-radius-pill);
+        transition: width 0.4s ease;
+      }
+      .onboarding-loading-message {
+        margin: 1.1rem 0 0;
+        font-size: 0.9rem;
+        color: var(--ios-secondary-label);
+        min-height: 1.3em;
+      }
       #onboarding-finish-btn {
         border-radius: var(--ios-radius-pill);
         padding: 0.7rem 1.6rem;
@@ -976,30 +1029,23 @@
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           <span id="dummy-btn-label">Add job</span>
         </button>
-        <button id="undo-btn" title="Undo the last delete">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
-          Undo
-        </button>
         <button id="scan-btn" class="btn-dark">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           Scan for new jobs
         </button>
-        <span class="settings-wrap">
-          <button id="settings-gear-btn" aria-label="Settings" aria-haspopup="true" aria-expanded="false">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-          </button>
-          <div class="settings-menu" id="settings-menu" hidden role="menu">
-            <button id="job-settings-btn" role="menuitem">Job settings</button>
-            <button id="user-settings-btn" role="menuitem">User settings</button>
-          </div>
-        </span>
+        <button id="job-settings-btn" aria-label="Job settings" title="Job settings">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </button>
       </span>
     </h1>
     <div class="tabs">
       <button class="tab-btn active" data-tab="current">New Jobs</button>
       <button class="tab-btn" data-tab="applied">Applied Jobs</button>
       <button class="tab-btn" data-tab="archived">Past Jobs</button>
-      <button class="tab-btn" data-tab="hidden">Hidden Jobs</button>
+    </div>
+    <div class="apply-notice tone-error" id="profile-gate-notice" hidden>
+      <span>Complete your profile (name + email) in Job Settings before applying to jobs.</span>
+      <button class="dismiss-notice-btn" id="profile-gate-dismiss" aria-label="Dismiss">&times;</button>
     </div>
     <div class="filter-row">
       <span class="filter-left">
@@ -1008,7 +1054,7 @@
           <option value="72">Last 3 days</option>
           <option value="168">Last 7 days</option>
         </select>
-        <input type="text" id="city-filter" list="city-suggestions" placeholder="City" autocomplete="off" />
+        <input type="text" id="city-filter" list="city-suggestions" placeholder="Location" autocomplete="off" />
         <datalist id="city-suggestions">
           <option value="San Francisco Bay Area"></option>
           <option value="Greater New York City Area"></option>
@@ -1059,6 +1105,285 @@
           <option value="Salt Lake City, UT"></option>
           <option value="San Jose, CA"></option>
           <option value="Remote"></option>
+          <option value="94103">San Francisco Bay Area (zip)</option>
+          <option value="10001">Greater New York City Area (zip)</option>
+          <option value="90001">Greater Los Angeles Area (zip)</option>
+          <option value="60601">Greater Chicago Area (zip)</option>
+          <option value="02108">Greater Boston Area (zip)</option>
+          <option value="20001">Washington DC-Baltimore Area (zip)</option>
+          <option value="98101">Greater Seattle Area (zip)</option>
+          <option value="75201">Dallas-Fort Worth Metroplex (zip)</option>
+          <option value="77002">Greater Houston Area (zip)</option>
+          <option value="30301">Greater Atlanta Area (zip)</option>
+          <option value="33101">Miami-Fort Lauderdale Area (zip)</option>
+          <option value="19102">Greater Philadelphia Area (zip)</option>
+          <option value="85001">Phoenix Metropolitan Area (zip)</option>
+          <option value="80202">Denver Metropolitan Area (zip)</option>
+          <option value="78701">Austin Metropolitan Area (zip)</option>
+          <option value="92101">San Diego Metropolitan Area (zip)</option>
+          <option value="97201">Portland Metropolitan Area (zip)</option>
+          <option value="55401">Minneapolis-Saint Paul Area (zip)</option>
+        </datalist>
+        <datalist id="company-suggestions">
+          <!-- Tech / software -->
+          <option value="Google"></option>
+          <option value="Apple"></option>
+          <option value="Meta"></option>
+          <option value="Amazon"></option>
+          <option value="Microsoft"></option>
+          <option value="Netflix"></option>
+          <option value="Adobe"></option>
+          <option value="Cisco"></option>
+          <option value="IBM"></option>
+          <option value="Oracle"></option>
+          <option value="Intel"></option>
+          <option value="Dell"></option>
+          <option value="HP"></option>
+          <option value="Salesforce"></option>
+          <option value="SAP"></option>
+          <option value="VMware"></option>
+          <option value="Nvidia"></option>
+          <option value="Qualcomm"></option>
+          <option value="Sony"></option>
+          <option value="Samsung"></option>
+          <option value="Airbnb"></option>
+          <option value="Stripe"></option>
+          <option value="Figma"></option>
+          <option value="Notion"></option>
+          <option value="Spotify"></option>
+          <option value="Uber"></option>
+          <option value="Lyft"></option>
+          <option value="Slack"></option>
+          <option value="Pinterest"></option>
+          <option value="Dropbox"></option>
+          <option value="Shopify"></option>
+          <option value="Square"></option>
+          <option value="Block"></option>
+          <option value="Coinbase"></option>
+          <option value="Robinhood"></option>
+          <option value="DoorDash"></option>
+          <option value="Instacart"></option>
+          <option value="LinkedIn"></option>
+          <option value="Twitter"></option>
+          <option value="Snap"></option>
+          <option value="TikTok"></option>
+          <option value="Canva"></option>
+          <option value="Atlassian"></option>
+          <option value="Asana"></option>
+          <option value="Zoom"></option>
+          <option value="Discord"></option>
+          <option value="Reddit"></option>
+          <option value="OpenAI"></option>
+          <option value="Anthropic"></option>
+          <option value="Perplexity"></option>
+          <option value="Datadog"></option>
+          <option value="Gusto"></option>
+          <option value="Ramp"></option>
+          <option value="Brex"></option>
+          <option value="Rippling"></option>
+          <option value="Webflow"></option>
+          <option value="Duolingo"></option>
+          <!-- Finance -->
+          <option value="JPMorgan Chase"></option>
+          <option value="Bank of America"></option>
+          <option value="Wells Fargo"></option>
+          <option value="Goldman Sachs"></option>
+          <option value="Morgan Stanley"></option>
+          <option value="Citigroup"></option>
+          <option value="American Express"></option>
+          <option value="Visa"></option>
+          <option value="Mastercard"></option>
+          <option value="PayPal"></option>
+          <option value="Capital One"></option>
+          <option value="Charles Schwab"></option>
+          <option value="Fidelity Investments"></option>
+          <option value="BlackRock"></option>
+          <!-- Retail / consumer -->
+          <option value="Walmart"></option>
+          <option value="Target"></option>
+          <option value="Costco"></option>
+          <option value="Home Depot"></option>
+          <option value="Lowe's"></option>
+          <option value="Kroger"></option>
+          <option value="Best Buy"></option>
+          <option value="Nike"></option>
+          <option value="Nordstrom"></option>
+          <option value="IKEA"></option>
+          <!-- Healthcare / pharma -->
+          <option value="UnitedHealth Group"></option>
+          <option value="CVS Health"></option>
+          <option value="Pfizer"></option>
+          <option value="Johnson & Johnson"></option>
+          <option value="Moderna"></option>
+          <option value="Kaiser Permanente"></option>
+          <option value="Cigna"></option>
+          <!-- Auto / industrial -->
+          <option value="Ford"></option>
+          <option value="General Motors"></option>
+          <option value="Tesla"></option>
+          <option value="Toyota"></option>
+          <option value="Honda"></option>
+          <option value="Boeing"></option>
+          <option value="Lockheed Martin"></option>
+          <option value="General Electric"></option>
+          <option value="3M"></option>
+          <option value="Caterpillar"></option>
+          <option value="Honeywell"></option>
+          <!-- Airlines / telecom -->
+          <option value="Delta Air Lines"></option>
+          <option value="United Airlines"></option>
+          <option value="American Airlines"></option>
+          <option value="Southwest Airlines"></option>
+          <option value="AT&T"></option>
+          <option value="Verizon"></option>
+          <option value="T-Mobile"></option>
+          <option value="Comcast"></option>
+          <!-- Food / beverage -->
+          <option value="Coca-Cola"></option>
+          <option value="PepsiCo"></option>
+          <option value="McDonald's"></option>
+          <option value="Starbucks"></option>
+          <option value="Chipotle"></option>
+          <!-- Media / entertainment -->
+          <option value="Disney"></option>
+          <option value="Warner Bros. Discovery"></option>
+          <option value="Paramount"></option>
+          <option value="NBCUniversal"></option>
+          <!-- Consulting / professional services -->
+          <option value="Deloitte"></option>
+          <option value="McKinsey & Company"></option>
+          <option value="PwC"></option>
+          <option value="EY"></option>
+          <option value="KPMG"></option>
+          <option value="Accenture"></option>
+        </datalist>
+        <datalist id="job-title-suggestions">
+          <!-- Design -->
+          <option value="Product Designer"></option>
+          <option value="Senior Product Designer"></option>
+          <option value="Staff Product Designer"></option>
+          <option value="Principal Designer"></option>
+          <option value="Lead Product Designer"></option>
+          <option value="UX Designer"></option>
+          <option value="UI Designer"></option>
+          <option value="UX/UI Designer"></option>
+          <option value="Visual Designer"></option>
+          <option value="Brand Designer"></option>
+          <option value="Graphic Designer"></option>
+          <option value="Design Lead"></option>
+          <option value="Design Manager"></option>
+          <option value="Head of Design"></option>
+          <option value="UX Researcher"></option>
+          <option value="Interaction Designer"></option>
+          <option value="Motion Designer"></option>
+          <option value="Design Systems Designer"></option>
+          <option value="Growth Designer"></option>
+          <option value="Marketing Designer"></option>
+          <option value="Web Designer"></option>
+          <option value="Junior Product Designer"></option>
+          <option value="Associate Product Designer"></option>
+          <option value="Industrial Designer"></option>
+          <option value="Fashion Designer"></option>
+          <option value="Interior Designer"></option>
+          <!-- Trades -->
+          <option value="Plumber"></option>
+          <option value="Electrician"></option>
+          <option value="Carpenter"></option>
+          <option value="HVAC Technician"></option>
+          <option value="Welder"></option>
+          <option value="Mechanic"></option>
+          <option value="Painter"></option>
+          <option value="Locksmith"></option>
+          <!-- Healthcare -->
+          <option value="Registered Nurse"></option>
+          <option value="Physician"></option>
+          <option value="Dentist"></option>
+          <option value="Pharmacist"></option>
+          <option value="Physical Therapist"></option>
+          <option value="Medical Assistant"></option>
+          <option value="Veterinarian"></option>
+          <option value="Radiologic Technologist"></option>
+          <!-- Education -->
+          <option value="Teacher"></option>
+          <option value="Professor"></option>
+          <option value="School Counselor"></option>
+          <option value="Principal"></option>
+          <option value="Teaching Assistant"></option>
+          <!-- Business / office -->
+          <option value="Accountant"></option>
+          <option value="Financial Analyst"></option>
+          <option value="Sales Manager"></option>
+          <option value="Marketing Manager"></option>
+          <option value="HR Manager"></option>
+          <option value="Project Manager"></option>
+          <option value="Operations Manager"></option>
+          <option value="Administrative Assistant"></option>
+          <option value="Executive Assistant"></option>
+          <option value="Business Analyst"></option>
+          <option value="Office Manager"></option>
+          <option value="Bookkeeper"></option>
+          <!-- Legal -->
+          <option value="Lawyer"></option>
+          <option value="Paralegal"></option>
+          <option value="Attorney"></option>
+          <!-- Food service / hospitality -->
+          <option value="Chef"></option>
+          <option value="Cook"></option>
+          <option value="Bartender"></option>
+          <option value="Server"></option>
+          <option value="Restaurant Manager"></option>
+          <option value="Barista"></option>
+          <option value="Hotel Manager"></option>
+          <!-- Tech / engineering -->
+          <option value="Software Engineer"></option>
+          <option value="Data Scientist"></option>
+          <option value="DevOps Engineer"></option>
+          <option value="IT Support Specialist"></option>
+          <option value="Network Administrator"></option>
+          <option value="Systems Administrator"></option>
+          <option value="QA Engineer"></option>
+          <option value="Product Manager"></option>
+          <option value="Data Analyst"></option>
+          <option value="Civil Engineer"></option>
+          <option value="Mechanical Engineer"></option>
+          <option value="Electrical Engineer"></option>
+          <!-- Retail / customer service -->
+          <option value="Retail Associate"></option>
+          <option value="Store Manager"></option>
+          <option value="Cashier"></option>
+          <option value="Customer Service Representative"></option>
+          <option value="Customer Support Specialist"></option>
+          <!-- Construction / real estate -->
+          <option value="Construction Worker"></option>
+          <option value="General Contractor"></option>
+          <option value="Architect"></option>
+          <option value="Real Estate Agent"></option>
+          <option value="Property Manager"></option>
+          <!-- Transportation -->
+          <option value="Truck Driver"></option>
+          <option value="Delivery Driver"></option>
+          <option value="Pilot"></option>
+          <option value="Flight Attendant"></option>
+          <!-- Creative / media -->
+          <option value="Photographer"></option>
+          <option value="Writer"></option>
+          <option value="Journalist"></option>
+          <option value="Video Editor"></option>
+          <option value="Copywriter"></option>
+          <option value="Content Strategist"></option>
+          <!-- Science / security -->
+          <option value="Research Scientist"></option>
+          <option value="Lab Technician"></option>
+          <option value="Security Guard"></option>
+          <option value="Police Officer"></option>
+          <!-- Generic role words also useful as ban/exclude terms -->
+          <option value="Recruiter"></option>
+          <option value="Sourcer"></option>
+          <option value="Engineer"></option>
+          <option value="Manager"></option>
+          <option value="Director"></option>
+          <option value="Vice President"></option>
+          <option value="Intern"></option>
         </datalist>
         <select id="radius-filter" title="How far from the city above to include">
           <option value="0">Exact match</option>
@@ -1070,7 +1395,7 @@
           <option value="remote">Remote</option>
           <option value="local">Local</option>
         </select>
-        <input type="text" id="search-input" placeholder="Job Title" />
+        <input type="text" id="search-input" name="job-search" list="job-title-suggestions" autocomplete="on" placeholder="Job Title" />
       </span>
       <span class="filter-note" id="filter-note"></span>
     </div>
@@ -1103,6 +1428,22 @@
         <h2>Welcome to FitPilot.AI</h2>
         <p>Let's get your search set up — add the companies and titles you're targeting, upload your resume, and set a location. You can always change these later from the settings gear.</p>
       </div>
+      <div class="onboarding-loading" id="onboarding-loading" hidden>
+        <div class="onboarding-progress-track">
+          <div class="onboarding-progress-fill" id="onboarding-progress-fill"></div>
+        </div>
+        <p class="onboarding-loading-message" id="onboarding-loading-message"></p>
+      </div>
+      <div class="onboarding-form-section" id="onboarding-form-section">
+      <div class="onboarding-step">
+        <h3>Add your info <span class="required-star">*</span></h3>
+        <p class="modal-hint">Your name and email — required before applying to any job.</p>
+        <div class="profile-fields-row">
+          <input type="text" id="onboarding-first-name-input" placeholder="First name" name="given-name" autocomplete="given-name" />
+          <input type="text" id="onboarding-last-name-input" placeholder="Last name" name="family-name" autocomplete="family-name" />
+        </div>
+        <input type="email" id="onboarding-email-input" placeholder="Email" name="email" autocomplete="email" />
+      </div>
       <div class="onboarding-columns">
         <div class="onboarding-column">
           <div class="onboarding-step">
@@ -1115,11 +1456,11 @@
               </button>
               <div class="term-accordion-body" data-accordion-body="priorityCompanies" hidden>
                 <div class="term-section-toolbar">
-                  <input type="text" class="term-search-input" data-term-search="priorityCompanies" placeholder="Search companies to add" />
+                  <input type="text" class="term-search-input" data-term-search="priorityCompanies" name="search-priority-companies" list="company-suggestions" autocomplete="on" placeholder="Search companies to add" />
                   <button class="term-add-btn add-color" data-list="priorityCompanies" aria-label="Add company">+</button>
                 </div>
                 <div class="term-input-row" data-input-for="priorityCompanies" hidden>
-                  <input type="text" placeholder="Company name" data-input="priorityCompanies" />
+                  <input type="text" placeholder="Company name" data-input="priorityCompanies" name="company-name" list="company-suggestions" autocomplete="organization" />
                   <button class="btn-dark" data-confirm="priorityCompanies">Add</button>
                 </div>
                 <div class="term-list" data-list-el="priorityCompanies"></div>
@@ -1133,11 +1474,11 @@
               </button>
               <div class="term-accordion-body" data-accordion-body="bannedCompanies" hidden>
                 <div class="term-section-toolbar">
-                  <input type="text" class="term-search-input" data-term-search="bannedCompanies" placeholder="Search companies to ban" />
+                  <input type="text" class="term-search-input" data-term-search="bannedCompanies" name="search-banned-companies" list="company-suggestions" autocomplete="on" placeholder="Search companies to ban" />
                   <button class="term-add-btn ban-color" data-list="bannedCompanies" aria-label="Ban company">+</button>
                 </div>
                 <div class="term-input-row" data-input-for="bannedCompanies" hidden>
-                  <input type="text" placeholder="Company name" data-input="bannedCompanies" />
+                  <input type="text" placeholder="Company name" data-input="bannedCompanies" name="company-name" list="company-suggestions" autocomplete="organization" />
                   <button class="btn-dark" data-confirm="bannedCompanies">Add</button>
                 </div>
                 <div class="term-list" data-list-el="bannedCompanies"></div>
@@ -1154,11 +1495,11 @@
               </button>
               <div class="term-accordion-body" data-accordion-body="includeTerms" hidden>
                 <div class="term-section-toolbar">
-                  <input type="text" class="term-search-input" data-term-search="includeTerms" placeholder="Search included terms" />
+                  <input type="text" class="term-search-input" data-term-search="includeTerms" name="search-include-terms" list="job-title-suggestions" autocomplete="on" placeholder="Search included terms" />
                   <button class="term-add-btn add-color" data-list="includeTerms" aria-label="Add term">+</button>
                 </div>
                 <div class="term-input-row" data-input-for="includeTerms" hidden>
-                  <input type="text" placeholder="e.g. Brand Designer" data-input="includeTerms" />
+                  <input type="text" placeholder="e.g. Brand Designer" data-input="includeTerms" name="job-title-term" list="job-title-suggestions" autocomplete="organization-title" />
                   <button class="btn-dark" data-confirm="includeTerms">Add</button>
                 </div>
                 <div class="term-list" data-list-el="includeTerms"></div>
@@ -1172,11 +1513,11 @@
               </button>
               <div class="term-accordion-body" data-accordion-body="excludeTerms" hidden>
                 <div class="term-section-toolbar">
-                  <input type="text" class="term-search-input" data-term-search="excludeTerms" placeholder="Search excluded terms" />
+                  <input type="text" class="term-search-input" data-term-search="excludeTerms" name="search-exclude-terms" list="job-title-suggestions" autocomplete="on" placeholder="Search excluded terms" />
                   <button class="term-add-btn ban-color" data-list="excludeTerms" aria-label="Ban term">+</button>
                 </div>
                 <div class="term-input-row" data-input-for="excludeTerms" hidden>
-                  <input type="text" placeholder="e.g. Recruiter" data-input="excludeTerms" />
+                  <input type="text" placeholder="e.g. Recruiter" data-input="excludeTerms" name="job-title-term" list="job-title-suggestions" autocomplete="organization-title" />
                   <button class="btn-dark" data-confirm="excludeTerms">Add</button>
                 </div>
                 <div class="term-list" data-list-el="excludeTerms"></div>
@@ -1199,9 +1540,9 @@
           </div>
           <div class="onboarding-step">
             <h3>Add locations <span class="required-star" id="onboarding-location-required" hidden>*</span></h3>
-            <p class="modal-hint">Only jobs matching this city (and radius, if set) will ever be scanned or shown — leave the city blank for no restriction.</p>
+            <p class="modal-hint">Only jobs matching this location (city or zip code, and radius, if set) will ever be scanned or shown — leave it blank for no restriction.</p>
             <div class="scan-location-row">
-              <input type="text" id="onboarding-scan-city-input" list="city-suggestions" placeholder="City" autocomplete="off" />
+              <input type="text" id="onboarding-scan-city-input" list="city-suggestions" placeholder="Location (city or zip)" autocomplete="off" />
               <select id="onboarding-scan-radius-select" title="How far from the city above to include">
                 <option value="0">Exact match</option>
                 <option value="10">Within 10 mi</option>
@@ -1222,14 +1563,18 @@
       </div>
       <div class="onboarding-footer">
         <p class="modal-error" id="onboarding-error" hidden></p>
-        <button class="btn-dark" id="onboarding-finish-btn">Finish setup</button>
+        <div class="onboarding-footer-buttons">
+          <button id="onboarding-skip-btn">Skip for now</button>
+          <button class="btn-dark" id="onboarding-finish-btn">Finish setup</button>
+        </div>
+      </div>
       </div>
     </div>
     <div class="modal-overlay" id="add-job-modal" hidden>
       <div class="modal">
         <h2>Add a job</h2>
         <p class="modal-hint">Paste a direct posting URL from Greenhouse, Lever, SmartRecruiters, Ashby, or BambooHR. LinkedIn isn't supported.</p>
-        <input type="url" id="add-job-url-input" placeholder="Paste job posting URL" />
+        <input type="url" id="add-job-url-input" name="job-url" autocomplete="url" placeholder="Paste job posting URL" />
         <p class="modal-error" id="add-job-error" hidden></p>
         <div class="modal-actions">
           <button id="add-job-cancel-btn">Cancel</button>
@@ -1248,6 +1593,7 @@
         <div class="drawer-tabs">
           <button class="drawer-tab-btn active" data-drawer-tab="companies">Companies</button>
           <button class="drawer-tab-btn" data-drawer-tab="title">Job Title</button>
+          <button class="drawer-tab-btn" data-drawer-tab="user">User</button>
         </div>
         <div class="drawer-body">
           <div class="drawer-pane" id="drawer-pane-companies">
@@ -1259,11 +1605,11 @@
               </button>
               <div class="term-accordion-body" data-accordion-body="priorityCompanies" hidden>
                 <div class="term-section-toolbar">
-                  <input type="text" class="term-search-input" data-term-search="priorityCompanies" placeholder="Search companies to add" />
+                  <input type="text" class="term-search-input" data-term-search="priorityCompanies" name="search-priority-companies" list="company-suggestions" autocomplete="on" placeholder="Search companies to add" />
                   <button class="term-add-btn add-color" data-list="priorityCompanies" aria-label="Add company">+</button>
                 </div>
                 <div class="term-input-row" data-input-for="priorityCompanies" hidden>
-                  <input type="text" placeholder="Company name" data-input="priorityCompanies" />
+                  <input type="text" placeholder="Company name" data-input="priorityCompanies" name="company-name" list="company-suggestions" autocomplete="organization" />
                   <button class="btn-dark" data-confirm="priorityCompanies">Add</button>
                 </div>
                 <div class="term-list" data-list-el="priorityCompanies"></div>
@@ -1277,11 +1623,11 @@
               </button>
               <div class="term-accordion-body" data-accordion-body="bannedCompanies" hidden>
                 <div class="term-section-toolbar">
-                  <input type="text" class="term-search-input" data-term-search="bannedCompanies" placeholder="Search companies to ban" />
+                  <input type="text" class="term-search-input" data-term-search="bannedCompanies" name="search-banned-companies" list="company-suggestions" autocomplete="on" placeholder="Search companies to ban" />
                   <button class="term-add-btn ban-color" data-list="bannedCompanies" aria-label="Ban company">+</button>
                 </div>
                 <div class="term-input-row" data-input-for="bannedCompanies" hidden>
-                  <input type="text" placeholder="Company name" data-input="bannedCompanies" />
+                  <input type="text" placeholder="Company name" data-input="bannedCompanies" name="company-name" list="company-suggestions" autocomplete="organization" />
                   <button class="btn-dark" data-confirm="bannedCompanies">Add</button>
                 </div>
                 <div class="term-list" data-list-el="bannedCompanies"></div>
@@ -1297,11 +1643,11 @@
               </button>
               <div class="term-accordion-body" data-accordion-body="includeTerms" hidden>
                 <div class="term-section-toolbar">
-                  <input type="text" class="term-search-input" data-term-search="includeTerms" placeholder="Search included terms" />
+                  <input type="text" class="term-search-input" data-term-search="includeTerms" name="search-include-terms" list="job-title-suggestions" autocomplete="on" placeholder="Search included terms" />
                   <button class="term-add-btn add-color" data-list="includeTerms" aria-label="Add term">+</button>
                 </div>
                 <div class="term-input-row" data-input-for="includeTerms" hidden>
-                  <input type="text" placeholder="e.g. Brand Designer" data-input="includeTerms" />
+                  <input type="text" placeholder="e.g. Brand Designer" data-input="includeTerms" name="job-title-term" list="job-title-suggestions" autocomplete="organization-title" />
                   <button class="btn-dark" data-confirm="includeTerms">Add</button>
                 </div>
                 <div class="term-list" data-list-el="includeTerms"></div>
@@ -1315,76 +1661,69 @@
               </button>
               <div class="term-accordion-body" data-accordion-body="excludeTerms" hidden>
                 <div class="term-section-toolbar">
-                  <input type="text" class="term-search-input" data-term-search="excludeTerms" placeholder="Search excluded terms" />
+                  <input type="text" class="term-search-input" data-term-search="excludeTerms" name="search-exclude-terms" list="job-title-suggestions" autocomplete="on" placeholder="Search excluded terms" />
                   <button class="term-add-btn ban-color" data-list="excludeTerms" aria-label="Ban term">+</button>
                 </div>
                 <div class="term-input-row" data-input-for="excludeTerms" hidden>
-                  <input type="text" placeholder="e.g. Recruiter" data-input="excludeTerms" />
+                  <input type="text" placeholder="e.g. Recruiter" data-input="excludeTerms" name="job-title-term" list="job-title-suggestions" autocomplete="organization-title" />
                   <button class="btn-dark" data-confirm="excludeTerms">Add</button>
                 </div>
                 <div class="term-list" data-list-el="excludeTerms"></div>
               </div>
             </div>
           </div>
+          <div class="drawer-pane" id="drawer-pane-user" hidden>
+            <div class="term-section">
+              <h3 class="settings-section-title">Profile</h3>
+              <p class="modal-hint">Your name and email — required before applying to any job.</p>
+              <div class="profile-fields-row">
+                <input type="text" id="user-first-name-input" placeholder="First name" name="given-name" autocomplete="given-name" />
+                <input type="text" id="user-last-name-input" placeholder="Last name" name="family-name" autocomplete="family-name" />
+              </div>
+              <input type="email" id="user-email-input" placeholder="Email" name="email" autocomplete="email" />
+            </div>
+            <div class="term-section">
+              <h3 class="settings-section-title">Scan location</h3>
+              <p class="modal-hint">Only jobs matching this location (city or zip code, and radius, if set) will ever be scanned or shown — leave it blank for no restriction.</p>
+              <div class="scan-location-row">
+                <input type="text" id="user-scan-city-input" list="city-suggestions" placeholder="Location (city or zip)" autocomplete="off" />
+                <select id="user-scan-radius-select" title="How far from the city above to include">
+                  <option value="0">Exact match</option>
+                  <option value="10">Within 10 mi</option>
+                  <option value="25">Within 25 mi</option>
+                  <option value="50">Within 50 mi</option>
+                </select>
+              </div>
+              <div class="term-list" id="user-scan-location-current" hidden>
+                <span class="term-chip add-color">
+                  <span id="user-scan-location-current-label"></span>
+                  <button class="term-chip-remove" id="user-scan-location-remove-btn" aria-label="Remove saved location">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                  </button>
+                </span>
+              </div>
+            </div>
+            <div class="term-section">
+              <h3 class="settings-section-title">Resume</h3>
+              <div class="resume-current-row" id="resume-current-row" hidden>
+                <a id="resume-current-link" href="#" target="_blank"></a>
+                <button id="resume-remove-btn">Remove</button>
+              </div>
+              <input type="file" id="resume-file-input" accept=".pdf,.doc,.docx" />
+              <div>
+                <button class="btn-dark" id="resume-upload-btn">Upload</button>
+              </div>
+              <p class="modal-error" id="resume-error" hidden></p>
+            </div>
+          </div>
         </div>
+        <p class="modal-error" id="job-settings-message" hidden style="padding: 0 1.25rem;"></p>
         <div class="drawer-footer">
           <label class="clear-all-check">
             <input type="checkbox" id="job-settings-clear-all-check" />
             Clear all existing job history
           </label>
           <button class="btn-dark" id="job-settings-save-btn">Save</button>
-        </div>
-      </div>
-    </div>
-    <div class="drawer-overlay" id="user-settings-overlay" hidden>
-      <div class="drawer" id="user-settings-drawer">
-        <div class="drawer-header">
-          <h2>User settings</h2>
-          <button class="drawer-close-btn" id="user-settings-close-btn" aria-label="Close">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-          </button>
-        </div>
-        <div class="drawer-body">
-          <div class="term-section">
-            <h3 class="settings-section-title">Scan location</h3>
-            <p class="modal-hint">Only jobs matching this city (and radius, if set) will ever be scanned or shown — leave the city blank for no restriction.</p>
-            <div class="scan-location-row">
-              <input type="text" id="user-scan-city-input" list="city-suggestions" placeholder="City" autocomplete="off" />
-              <select id="user-scan-radius-select" title="How far from the city above to include">
-                <option value="0">Exact match</option>
-                <option value="10">Within 10 mi</option>
-                <option value="25">Within 25 mi</option>
-                <option value="50">Within 50 mi</option>
-              </select>
-            </div>
-            <div class="term-list" id="user-scan-location-current" hidden>
-              <span class="term-chip add-color">
-                <span id="user-scan-location-current-label"></span>
-                <button class="term-chip-remove" id="user-scan-location-remove-btn" aria-label="Remove saved location">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                </button>
-              </span>
-            </div>
-          </div>
-          <div class="term-section">
-            <h3 class="settings-section-title">Resume</h3>
-            <div class="resume-current-row" id="resume-current-row" hidden>
-              <a id="resume-current-link" href="#" target="_blank"></a>
-              <button id="resume-remove-btn">Remove</button>
-            </div>
-            <input type="file" id="resume-file-input" accept=".pdf,.doc,.docx" />
-            <div>
-              <button class="btn-dark" id="resume-upload-btn">Upload</button>
-            </div>
-            <p class="modal-error" id="resume-error" hidden></p>
-          </div>
-        </div>
-        <div class="drawer-footer">
-          <label class="clear-all-check">
-            <input type="checkbox" id="user-settings-clear-all-check" />
-            Clear all existing job history
-          </label>
-          <button class="btn-dark" id="user-settings-save-btn">Save</button>
         </div>
       </div>
     </div>

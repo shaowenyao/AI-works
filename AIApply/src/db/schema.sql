@@ -56,3 +56,14 @@ CREATE TABLE IF NOT EXISTS scan_location_setting (
   city TEXT NOT NULL DEFAULT '',
   radius_miles INTEGER NOT NULL DEFAULT 0
 );
+
+-- Basic identity info (Job Settings' User tab, and the onboarding welcome
+-- screen) — required before applying to any job, since an application
+-- needs a name/email to actually go out. See isProfileComplete(), enforced
+-- server-side in the apply/mark-applied routes. Single row, id fixed at 1.
+CREATE TABLE IF NOT EXISTS user_profile (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  first_name TEXT NOT NULL DEFAULT '',
+  last_name TEXT NOT NULL DEFAULT '',
+  email TEXT NOT NULL DEFAULT ''
+);

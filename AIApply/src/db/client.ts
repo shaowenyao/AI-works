@@ -24,9 +24,9 @@ try {
   // column already exists
 }
 
-// Lets a delete be undone: dismissJob() stashes the status a job had right
-// before deletion here, along with when, so undoLastDismiss() can find the
-// most recent one and put it back.
+// previous_status/dismissed_at supported the old Hide/Unhide feature (since
+// removed) — left in place rather than dropped, per this file's
+// additive-only migration convention; always NULL now.
 try {
   db.exec("ALTER TABLE jobs ADD COLUMN previous_status TEXT");
 } catch {
@@ -147,29 +147,17 @@ function normalizeForDuplicateCheck(s: string): string {
  * Only the first instance found (earliest date_found) is kept in the
  * result; the rest are dropped entirely. Computed at read time, not stored,
  * since "duplicate" is a relationship between rows, not a fact about one.
- *
- * listJobs() now includes dismissed (hidden) jobs (for the Hidden Jobs tab),
- * so a non-dismissed job always wins the slot for its (company, title) key
- * over a dismissed one, regardless of which was found first — otherwise
- * hiding one office's posting could accidentally shadow a still-live
- * duplicate at another office out of every other tab. Only falls back to a
- * dismissed job when every duplicate for that key is dismissed.
  */
 export function hideDuplicates(jobs: JobRow[]): JobRow[] {
   const seen = new Set<string>();
   const keep = new Set<number>();
 
-  const active = jobs.filter((j) => j.status !== "dismissed");
-  const dismissed = jobs.filter((j) => j.status === "dismissed");
-
-  for (const group of [active, dismissed]) {
-    const byFirstFound = [...group].sort((a, b) => a.date_found.localeCompare(b.date_found));
-    for (const job of byFirstFound) {
-      const key = `${normalizeForDuplicateCheck(job.company)}::${normalizeForDuplicateCheck(job.title)}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      keep.add(job.id);
-    }
+  const byFirstFound = [...jobs].sort((a, b) => a.date_found.localeCompare(b.date_found));
+  for (const job of byFirstFound) {
+    const key = `${normalizeForDuplicateCheck(job.company)}::${normalizeForDuplicateCheck(job.title)}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    keep.add(job.id);
   }
 
   // Preserve the caller's original ordering (priority-first, newest-first).
@@ -387,23 +375,18 @@ const ARCHIVE_RETENTION_DAYS = 7;
 /**
  * Keeps the Archived tab to a rolling 1-week window: permanently removes
  * jobs found more than 7 days ago, except applied ones (a permanent record
- * of what you've applied to) and already-dismissed ones (a separate,
- * soft-deleted bucket this shouldn't interfere with). Run on every page
- * load and on every scan, not just once, since "7 days ago" keeps moving.
+ * of what you've applied to). Run on every page load and on every scan, not
+ * just once, since "7 days ago" keeps moving.
  */
 export function pruneOldArchivedJobs(): number {
   const cutoff = new Date(Date.now() - ARCHIVE_RETENTION_DAYS * 24 * 60 * 60 * 1000).toISOString();
   const result = db
-    .prepare("DELETE FROM jobs WHERE status NOT IN ('applied', 'dismissed', 'excluded') AND date_found < ?")
+    .prepare("DELETE FROM jobs WHERE status NOT IN ('applied', 'excluded') AND date_found < ?")
     .run(cutoff);
   return Number(result.changes);
 }
 
-/**
- * Priority companies first, then newest first within each group. Includes
- * dismissed (hidden) postings — the webapp's "Hidden Jobs" tab filters for
- * those client-side, same as it does for Applied/Archived.
- */
+/** Priority companies first, then newest first within each group. */
 export function listJobs(): JobRow[] {
   return db
     .prepare(
@@ -465,68 +448,10 @@ export function setFavorite(id: number, favorited: boolean): void {
 }
 
 /**
- * Marks a posting as dismissed (decided not to pursue). Kept in the
- * database (not deleted) so it won't reappear if the same URL is scanned
- * again, but hidden from the default job list.
- *
- * A hard-delete variant was tried instead (a prior version of this file) and
- * reverted: deleting the row outright meant the exact-URL dedup in
- * insertJobIfNew() had nothing left to match against, so a dismissed job
- * would silently resurface as "new" on the very next scan of that company —
- * confirmed live (deleted a real posting, rescanned, the identical job came
- * back with a new ID). Soft-dismiss avoids that.
- */
-export function dismissJob(id: number): void {
-  const job = getJob(id);
-  if (!job) return;
-  db.prepare(
-    "UPDATE jobs SET status = 'dismissed', previous_status = ?, dismissed_at = ? WHERE id = ?",
-  ).run(job.status, new Date().toISOString(), id);
-}
-
-/**
- * Restores whichever job was dismissed most recently, putting its status
- * back to whatever it was right before deletion. Only one level of undo —
- * good enough for "oops, wrong button" recovery, not a full history.
- */
-export function undoLastDismiss(): JobRow | undefined {
-  const job = db
-    .prepare(
-      "SELECT * FROM jobs WHERE status = 'dismissed' AND dismissed_at IS NOT NULL ORDER BY dismissed_at DESC LIMIT 1",
-    )
-    .get() as JobRow | undefined;
-  if (!job) return undefined;
-
-  db.prepare(
-    "UPDATE jobs SET status = ?, previous_status = NULL, dismissed_at = NULL WHERE id = ?",
-  ).run(job.previous_status ?? "found", job.id);
-
-  return getJob(job.id);
-}
-
-/**
- * Restores one specific hidden job (the per-card "Unhide" button), as
- * opposed to undoLastDismiss() which always restores whichever was hidden
- * most recently. Same restore logic — status goes back to whatever it was
- * right before it got hidden.
- */
-export function unhideJob(id: number): JobRow | undefined {
-  const job = getJob(id);
-  if (!job || job.status !== "dismissed") return undefined;
-
-  db.prepare(
-    "UPDATE jobs SET status = ?, previous_status = NULL, dismissed_at = NULL WHERE id = ?",
-  ).run(job.previous_status ?? "found", id);
-
-  return getJob(id);
-}
-
-/**
  * Permanently excludes a job as a bad fit — the "Exclude" button on New
- * Jobs. Unlike dismiss/hide, this is not reversible from the UI and the job
- * never appears in any tab again (see the GET / route filtering out
- * 'excluded'). The row is kept, not hard-deleted, and is exempted from
- * pruneOldArchivedJobs — same reason dismissed jobs are kept: exact-URL
+ * Jobs. Not reversible from the UI, and the job never appears in any tab
+ * again (see the GET / route filtering out 'excluded'). The row is kept,
+ * not hard-deleted, and is exempted from pruneOldArchivedJobs: exact-URL
  * dedup in insertJobIfNew needs the row to still exist, or the same
  * posting would just resurface as "new" on the next scan.
  */
@@ -536,8 +461,8 @@ export function excludeJob(id: number): void {
 
 /**
  * The "Clear all existing job history" checkbox on Job/User Settings —
- * a full, permanent wipe of every job row, including Applied and Hidden
- * history, not just New Jobs. Unlike excludeJob/blockCompany this is a real
+ * a full, permanent wipe of every job row, including Applied history, not
+ * just New Jobs. Unlike excludeJob/blockCompany this is a real
  * DELETE, not a status change — there is no undo. Only ever called right
  * before a fresh scan (see the settings save routes), so the table doesn't
  * stay empty.
@@ -721,4 +646,33 @@ export function saveScanLocation(location: ScanLocation): void {
     `INSERT INTO scan_location_setting (id, city, radius_miles) VALUES (1, ?, ?)
      ON CONFLICT(id) DO UPDATE SET city = excluded.city, radius_miles = excluded.radius_miles`,
   ).run(location.city.trim(), location.radiusMiles);
+}
+
+export interface UserProfile {
+  firstName: string;
+  lastName: string;
+  email: string;
+}
+
+/** Identity info from Job Settings' User tab / the onboarding welcome screen — always returns a row (defaults to empty). */
+export function getUserProfile(): UserProfile {
+  const row = db.prepare("SELECT first_name, last_name, email FROM user_profile WHERE id = 1").get() as
+    | { first_name: string; last_name: string; email: string }
+    | undefined;
+  return row
+    ? { firstName: row.first_name, lastName: row.last_name, email: row.email }
+    : { firstName: "", lastName: "", email: "" };
+}
+
+export function saveUserProfile(profile: UserProfile): void {
+  db.prepare(
+    `INSERT INTO user_profile (id, first_name, last_name, email) VALUES (1, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET first_name = excluded.first_name, last_name = excluded.last_name, email = excluded.email`,
+  ).run(profile.firstName.trim(), profile.lastName.trim(), profile.email.trim());
+}
+
+/** Gates applying to jobs (see POST /:id/apply and /:id/mark-applied) — an application needs at least a name and email to go out. */
+export function isProfileComplete(): boolean {
+  const profile = getUserProfile();
+  return Boolean(profile.firstName.trim() && profile.lastName.trim() && profile.email.trim());
 }

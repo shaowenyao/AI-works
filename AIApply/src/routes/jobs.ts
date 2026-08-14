@@ -4,9 +4,6 @@ import {
   listJobs,
   markJobRequested,
   markJobApplied,
-  dismissJob,
-  undoLastDismiss,
-  unhideJob,
   excludeJob,
   insertDummyJob,
   insertJobIfNew,
@@ -22,6 +19,7 @@ import {
   saveJobSettings,
   clearAllJobs,
   getScanLocation,
+  isProfileComplete,
 } from "../db/client.js";
 import type { JobRow, JobSettings } from "../db/client.js";
 import { scanJobs, resolvePriority } from "../jobs/scan.js";
@@ -82,10 +80,10 @@ jobsRouter.post("/job-settings", async (req, res) => {
   };
   try {
     saveJobSettings(settings);
-    // "Clear all existing job history" — a full, permanent wipe
-    // (including Applied/Hidden history), confirmed client-side before this
-    // request is even sent. Runs after settings are saved but before the
-    // scan below, so the fresh scan repopulates into an empty table.
+    // "Clear all existing job history" — a full, permanent wipe (including
+    // Applied history), confirmed client-side before this request is even
+    // sent. Runs after settings are saved but before the scan below, so the
+    // fresh scan repopulates into an empty table.
     if (body.clearAll === true) clearAllJobs();
     // Changed criteria (a newly banned/priority company, a new title term)
     // should be reflected against fresh postings right away, not just the
@@ -134,8 +132,17 @@ jobsRouter.post("/:id/request-generation", (req, res) => {
   }
 });
 
+// Applying needs a name/email to actually go out (see isProfileComplete) —
+// the client already checks this before letting the button do anything, so
+// hitting this in practice means a stale client cache, not the normal path.
+const PROFILE_INCOMPLETE_ERROR = "Add your name and email in Job Settings before applying to jobs.";
+
 // Wired up to the real Playwright autofill once it's built.
 jobsRouter.post("/:id/apply", async (req, res) => {
+  if (!isProfileComplete()) {
+    res.status(403).json({ error: PROFILE_INCOMPLETE_ERROR });
+    return;
+  }
   const id = Number(req.params.id);
   try {
     const { applyToJob } = await import("../autofill/apply.js");
@@ -150,46 +157,14 @@ jobsRouter.post("/:id/apply", async (req, res) => {
 // (via the built-in autofill or externally, e.g. Simplify). This only updates
 // the tracked status/applied_date — it never submits anything itself.
 jobsRouter.post("/:id/mark-applied", (req, res) => {
+  if (!isProfileComplete()) {
+    res.status(403).json({ error: PROFILE_INCOMPLETE_ERROR });
+    return;
+  }
   const id = Number(req.params.id);
   try {
     markJobApplied(id);
     res.json({ status: "applied" });
-  } catch (err) {
-    res.status(500).json({ error: (err as Error).message });
-  }
-});
-
-// Marks a posting as dismissed (decided not to pursue). Kept in the
-// database (not deleted) so it won't reappear if the same URL is scanned
-// again — moves it into the "Hidden Jobs" tab instead of the tab it was in.
-jobsRouter.post("/:id/dismiss", (req, res) => {
-  const id = Number(req.params.id);
-  try {
-    dismissJob(id);
-    res.json({ status: "dismissed" });
-  } catch (err) {
-    res.status(500).json({ error: (err as Error).message });
-  }
-});
-
-// Restores whichever job was most recently deleted, in case that was a
-// misclick — see undoLastDismiss() for how "most recent" is determined.
-jobsRouter.post("/undo-dismiss", (_req, res) => {
-  try {
-    const restored = undoLastDismiss();
-    res.json({ restored: restored ?? null });
-  } catch (err) {
-    res.status(500).json({ error: (err as Error).message });
-  }
-});
-
-// The per-card "Unhide" button — restores one specific job, as opposed to
-// undo-dismiss above which always targets whichever was hidden most recently.
-jobsRouter.post("/:id/unhide", (req, res) => {
-  const id = Number(req.params.id);
-  try {
-    const restored = unhideJob(id);
-    res.json({ restored: restored ?? null });
   } catch (err) {
     res.status(500).json({ error: (err as Error).message });
   }
@@ -263,14 +238,14 @@ jobsRouter.post("/:id/flag-company", (req, res) => {
 jobsRouter.post("/import", async (req, res) => {
   const url = req.body?.url;
   if (typeof url !== "string" || !url.trim()) {
-    res.status(400).json({ error: "A URL is required." });
+    res.status(400).json({ error: "Drop in a job posting URL to get started." });
     return;
   }
   try {
     const { importJobFromUrl } = await import("../jobs/importByUrl.js");
     const posting = await importJobFromUrl(url.trim());
     if (isCompanyBlocked(posting.company)) {
-      res.status(409).json({ error: `${posting.company} is flagged as a scam company and can't be added.` });
+      res.status(409).json({ error: `${posting.company} is flagged as a scam company, so this one's staying out.` });
       return;
     }
     const inserted = insertJobIfNew({
@@ -281,7 +256,7 @@ jobsRouter.post("/import", async (req, res) => {
       manuallyImported: true,
     });
     if (!inserted) {
-      res.status(409).json({ error: "That job is already in your list." });
+      res.status(409).json({ error: "Good news — that job's already on your list." });
       return;
     }
     // The client needs is_remote/is_local_sf back so it can switch the

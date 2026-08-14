@@ -8,7 +8,6 @@ const PIPELINE_STAGES = ["applied", "recruiter", "interview", "offer", "ghosted"
 const jobsEl = document.getElementById("jobs");
 const emptyEl = document.getElementById("empty");
 const scanBtn = document.getElementById("scan-btn");
-const undoBtn = document.getElementById("undo-btn");
 const dummyBtn = document.getElementById("dummy-btn");
 const dummyBtnLabel = document.getElementById("dummy-btn-label");
 const timeRangeFilter = document.getElementById("time-range-filter");
@@ -27,29 +26,28 @@ const paginationEl = document.getElementById("pagination");
 const applyNoticeEl = document.getElementById("apply-notice");
 const applyNoticeTextEl = document.getElementById("apply-notice-text");
 const applyNoticeDismissBtn = document.getElementById("apply-notice-dismiss");
+const profileGateNotice = document.getElementById("profile-gate-notice");
+const profileGateDismissBtn = document.getElementById("profile-gate-dismiss");
 const addJobModal = document.getElementById("add-job-modal");
 const addJobUrlInput = document.getElementById("add-job-url-input");
 const addJobError = document.getElementById("add-job-error");
 const addJobCancelBtn = document.getElementById("add-job-cancel-btn");
 const addJobSubmitBtn = document.getElementById("add-job-submit-btn");
-const settingsGearBtn = document.getElementById("settings-gear-btn");
-const settingsMenu = document.getElementById("settings-menu");
 const jobSettingsBtn = document.getElementById("job-settings-btn");
-const userSettingsBtn = document.getElementById("user-settings-btn");
 const jobSettingsOverlay = document.getElementById("job-settings-overlay");
 const jobSettingsCloseBtn = document.getElementById("job-settings-close-btn");
 const jobSettingsSaveBtn = document.getElementById("job-settings-save-btn");
 const jobSettingsClearAllCheck = document.getElementById("job-settings-clear-all-check");
+const jobSettingsMessage = document.getElementById("job-settings-message");
 const drawerTabButtons = document.querySelectorAll(".drawer-tab-btn");
-const userSettingsOverlay = document.getElementById("user-settings-overlay");
-const userSettingsCloseBtn = document.getElementById("user-settings-close-btn");
+const userFirstNameInput = document.getElementById("user-first-name-input");
+const userLastNameInput = document.getElementById("user-last-name-input");
+const userEmailInput = document.getElementById("user-email-input");
 const userScanCityInput = document.getElementById("user-scan-city-input");
 const userScanRadiusSelect = document.getElementById("user-scan-radius-select");
 const userScanLocationCurrentRow = document.getElementById("user-scan-location-current");
 const userScanLocationCurrentLabel = document.getElementById("user-scan-location-current-label");
 const userScanLocationRemoveBtn = document.getElementById("user-scan-location-remove-btn");
-const userSettingsSaveBtn = document.getElementById("user-settings-save-btn");
-const userSettingsClearAllCheck = document.getElementById("user-settings-clear-all-check");
 const resumeCurrentRow = document.getElementById("resume-current-row");
 const resumeCurrentLink = document.getElementById("resume-current-link");
 const resumeRemoveBtn = document.getElementById("resume-remove-btn");
@@ -59,6 +57,14 @@ const resumeError = document.getElementById("resume-error");
 const getStartedBtn = document.getElementById("get-started-btn");
 const onboardingPanel = document.getElementById("onboarding-panel");
 const onboardingFinishBtn = document.getElementById("onboarding-finish-btn");
+const onboardingSkipBtn = document.getElementById("onboarding-skip-btn");
+const onboardingFormSection = document.getElementById("onboarding-form-section");
+const onboardingLoading = document.getElementById("onboarding-loading");
+const onboardingProgressFill = document.getElementById("onboarding-progress-fill");
+const onboardingLoadingMessage = document.getElementById("onboarding-loading-message");
+const onboardingFirstNameInput = document.getElementById("onboarding-first-name-input");
+const onboardingLastNameInput = document.getElementById("onboarding-last-name-input");
+const onboardingEmailInput = document.getElementById("onboarding-email-input");
 const onboardingResumeCurrentRow = document.getElementById("onboarding-resume-current-row");
 const onboardingResumeCurrentLink = document.getElementById("onboarding-resume-current-link");
 const onboardingResumeRemoveBtn = document.getElementById("onboarding-resume-remove-btn");
@@ -77,7 +83,7 @@ const onboardingLocationRequired = document.getElementById("onboarding-location-
 const onboardingError = document.getElementById("onboarding-error");
 const filterRowEl = document.querySelector(".filter-row");
 const pageFooterEl = document.querySelector(".page-footer");
-// Gates the job list on all 4 tabs behind the onboarding panel once "Get
+// Gates the job list on every tab behind the onboarding panel once "Get
 // Started" is clicked — see openOnboarding/closeOnboarding and the guard at
 // the top of renderJobs().
 let onboardingActive = false;
@@ -107,9 +113,58 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+// The single page-level "message below" banner every button/action reports
+// through instead of a browser alert() popup — green for success, red for
+// error (see .apply-notice.tone-error). Auto-dismisses after a few seconds;
+// errors linger a bit longer since they're more worth actually reading.
+let bannerTimer = null;
+function showBanner(text, tone = "success") {
+  applyNoticeEl.classList.toggle("tone-error", tone === "error");
+  applyNoticeTextEl.textContent = text;
+  applyNoticeEl.hidden = false;
+  clearTimeout(bannerTimer);
+  bannerTimer = setTimeout(() => {
+    applyNoticeEl.hidden = true;
+  }, tone === "error" ? 6000 : 4000);
+}
+
 applyNoticeDismissBtn.addEventListener("click", () => {
+  clearTimeout(bannerTimer);
   applyNoticeEl.hidden = true;
 });
+
+// Per-card feedback (Generate Resume, Apply-not-ready, pipeline status,
+// Favorite) reports into that same card's .card-message slot instead of the
+// page banner, so it stays next to the button that triggered it. Only used
+// when the card is guaranteed to still be on screen at the moment of the
+// call — see showCardMessage vs. queueCardMessage below.
+function showCardMessage(cardEl, text, tone = "success") {
+  const msgEl = cardEl?.querySelector(".card-message");
+  if (!msgEl) return;
+  msgEl.innerHTML = `<span>${escapeHtml(text)}</span><button class="dismiss-error-btn" aria-label="Dismiss">&times;</button>`;
+  msgEl.classList.toggle("tone-success", tone === "success");
+  msgEl.hidden = false;
+  msgEl.querySelector(".dismiss-error-btn").addEventListener("click", () => {
+    msgEl.hidden = true;
+  });
+  clearTimeout(msgEl._dismissTimer);
+  msgEl._dismissTimer = setTimeout(() => {
+    msgEl.hidden = true;
+  }, tone === "error" ? 6000 : 4000);
+}
+
+// Some card actions (Generate Resume, pipeline status, Favorite) call
+// loadJobs() right after succeeding, which tears down and rebuilds every
+// card from scratch — so the message has to be queued here and re-applied
+// once the matching card exists again in the fresh DOM (see the
+// pendingCardMessage check at the end of renderJobs). If that job's card
+// isn't part of the freshly rendered page (moved tabs, moved off-page), the
+// message is simply dropped rather than falling back to a page banner —
+// that's the point: it only ever shows attached to its own card.
+let pendingCardMessage = null;
+function queueCardMessage(jobId, text, tone = "success") {
+  pendingCardMessage = { jobId: String(jobId), text, tone };
+}
 
 // Demo mode: everything works exactly like normal mode (real API calls,
 // real apply_order assignment, real navigation) — the one difference is
@@ -134,6 +189,55 @@ demoModeToggle.addEventListener("change", () => {
   renderJobs();
 });
 
+// Cached copy of the Profile fields (Job Settings' User tab / onboarding) —
+// applying to a job needs a name and email, so the Apply button checks this
+// before ever hitting the server (see isProfileComplete). The server
+// enforces the same gate independently (see PROFILE_INCOMPLETE_ERROR in
+// src/routes/jobs.ts) in case this cache is stale; this is purely to avoid
+// a round trip — and to avoid window.open()'ing a job's posting tab — for
+// the common case.
+let userProfile = { firstName: "", lastName: "", email: "" };
+function isProfileComplete() {
+  return Boolean(userProfile.firstName.trim() && userProfile.lastName.trim() && userProfile.email.trim());
+}
+// A persistent, top-level heads-up (visible on every tab, since it sits
+// above the tab-specific content) — unlike showBanner's messages, this
+// doesn't auto-hide and doesn't get cleared on tab switches. Only
+// disappears when the user dismisses it or the profile becomes complete on
+// a later refreshUserProfile() call (e.g. after saving it) — reappears on
+// the next full page load if it's still incomplete, same as any other
+// closeable banner.
+function updateProfileGateNotice() {
+  profileGateNotice.hidden = isProfileComplete();
+}
+profileGateDismissBtn.addEventListener("click", () => {
+  profileGateNotice.hidden = true;
+});
+
+// Every job-action button (Generate Resume, Apply, Favorite, Exclude, Flag
+// company, pipeline status, Scan, Add job) calls this first — re-checks
+// isProfileComplete() fresh on every click (not just on page load), and if
+// it's still incomplete, re-surfaces the persistent top notice (even if the
+// user had dismissed it) instead of letting the action through. Returns
+// true/false so callers can just `if (!requireProfile()) return;`.
+function requireProfile() {
+  if (isProfileComplete()) return true;
+  profileGateNotice.hidden = false;
+  window.scrollTo({ top: 0, behavior: "smooth" });
+  return false;
+}
+async function refreshUserProfile() {
+  try {
+    const settings = await (await fetch("/api/user-settings")).json();
+    userProfile = settings.profile ?? { firstName: "", lastName: "", email: "" };
+  } catch {
+    // Best-effort — the server-side gate on apply/mark-applied is the real
+    // enforcement, this cache just saves a round trip in the common case.
+  }
+  updateProfileGateNotice();
+}
+refreshUserProfile();
+
 // "Applied {when}" on the second line of an applied card. Relative ("2 days
 // ago") inside the last week so it's easy to scan at a glance; beyond that a
 // relative count stops being useful, so it falls back to an absolute date
@@ -151,7 +255,7 @@ function formatAppliedWhen(appliedDateString) {
 }
 // Each tab keeps its own search text — switching tabs never carries a query
 // over to (or clears one from) another tab.
-const searchQueries = { current: "", applied: "", archived: "", hidden: "" };
+const searchQueries = { current: "", applied: "", archived: "" };
 
 function withinTimeRange(dateString) {
   const ageMs = Date.now() - new Date(dateString).getTime();
@@ -159,15 +263,11 @@ function withinTimeRange(dateString) {
 }
 
 /**
- * Hidden Jobs = dismissed, regardless of anything else — checked first so a
- * hidden job never also shows up in whatever tab it originally lived in.
  * New Jobs = found within the selected time range, not yet applied. Applied
  * Jobs = applied regardless of date. Past Jobs = found before that range,
  * not applied.
  */
 function matchesTab(job) {
-  if (currentTab === "hidden") return job.status === "dismissed";
-  if (job.status === "dismissed") return false;
   if (currentTab === "applied") return job.status === "applied";
   if (job.status === "applied") return false;
   return currentTab === "current" ? withinTimeRange(job.date_found) : !withinTimeRange(job.date_found);
@@ -184,13 +284,12 @@ function isLocalJob(job) {
 
 const icons = {
   external: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>`,
-  eye: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/></svg>`,
-  eyeOff: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a20.3 20.3 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a20.32 20.32 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`,
   starOutline: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`,
   starFilled: `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`,
   x: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`,
-  flag: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="3"/></svg>`,
+  thumbsDown: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h4v12h-4"/></svg>`,
   globe: `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10Z"/></svg>`,
+  checkBadge: `<svg class="verified-check" width="15" height="15" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#007aff"/><path d="M8 12.5l2.5 2.5L16 9" stroke="white" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
 };
 
 function escapeHtml(str) {
@@ -201,43 +300,23 @@ function escapeHtml(str) {
 
 function jobCard(job) {
   const hasDocs = Boolean(job.resume_path && job.cover_letter_path);
-  const isHidden = job.status === "dismissed";
-  // A hidden job's real status is "dismissed", which would otherwise make
-  // it look like it was never applied to — previous_status (stashed by
-  // dismissJob, see db/client.ts) is what it actually was right before
-  // hiding, so the card keeps rendering the same controls (and the star in
-  // the same position) it had in its original tab.
-  const effectiveStatus = isHidden ? (job.previous_status ?? job.status) : job.status;
-  const isApplied = effectiveStatus === "applied";
+  const isApplied = job.status === "applied";
   // For found/requested jobs this would just repeat the company name the
   // title already shows ("Title — Company") — only worth a badge once it's
-  // saying something the title doesn't. Hidden Jobs already has its own tab
-  // label for that, so "dismissed" doesn't need repeating here either —
-  // only "applied"/"prepared" actually add information.
+  // saying something the title doesn't.
   const statusBadge =
-    job.status === "found" || job.status === "requested" || job.status === "dismissed"
-      ? ""
-      : `<span class="status">${escapeHtml(job.status)}</span>`;
+    job.status === "found" || job.status === "requested" ? "" : `<span class="status">${escapeHtml(job.status)}</span>`;
   const favoriteControl = `<button class="favorite-btn" data-favorited="${job.favorited ? "true" : "false"}" title="${job.favorited ? "Unfavorite" : "Favorite"}">${job.favorited ? icons.starFilled : icons.starOutline}</button>`;
   // On every tab — a permanent, non-reversible delete (see excludeJob in
-  // db/client.ts), distinct from Hide (which is reversible and keeps the
-  // job around in Hidden Jobs).
+  // db/client.ts).
   const excludeControl = `<button class="exclude-btn" title="Delete — this job cannot be fetched again" aria-label="Delete">${icons.x}</button>`;
-
-  // Toggles between the two actions instead of being two separate buttons —
-  // "Hide" (dismissJob) stashes the job's current status so "Unhide"
-  // (unhideJob) can put it back in whatever tab it came from, per-card
-  // rather than only being able to undo the single most recent hide.
-  const hideControl = isHidden
-    ? `<button class="hide-btn" data-hidden="true" title="Unhide" aria-label="Unhide">${icons.eye}</button>`
-    : `<button class="hide-btn" data-hidden="false" title="Hide" aria-label="Hide">${icons.eyeOff}</button>`;
 
   // On every tab — flags the whole company as a scam (see blockCompany in
   // db/client.ts), not just this one posting: every job of theirs already
   // tracked gets excluded too, and future scans/imports skip the company
   // entirely. Distinct from Exclude/Delete, which only ever touches the
   // single job it's clicked on.
-  const flagCompanyControl = `<button class="flag-company-btn" title="Flag company — block ${escapeHtml(job.company)} as a scam company" aria-label="Flag company">${icons.flag}</button>`;
+  const flagCompanyControl = `<button class="flag-company-btn" title="Flag company — block ${escapeHtml(job.company)} as a scam company" aria-label="Flag company">${icons.thumbsDown}</button>`;
 
   const generateControl =
     hasDocs || isApplied
@@ -255,17 +334,19 @@ function jobCard(job) {
     bamboohr: "BambooHR",
   };
   const sourceBadge = `<span class="source-badge" title="Job board source">${icons.globe}${escapeHtml(SOURCE_LABELS[job.source] ?? job.source)}</span>`;
-  const priorityBadge = job.priority ? `<span class="priority">Verified</span>` : "";
-  // A manual way to mark a not-yet-verified company as legitimate. Checking
-  // it does nothing on its own — the verdict only actually saves at the
-  // moment "Apply with AI prefill" is clicked (see that handler below).
-  // Checked state is tracked in pendingVerifiedJobIds, not just left on the
-  // DOM element, so it survives Generate Resume/Hide/favorite/etc. — all of
+  // Priority companies get a blue checkmark right on their name instead of a
+  // separate "Verified" badge in the pill row — see the company span below.
+  const companyCheck = job.priority ? `${icons.checkBadge} ` : "";
+  // A manual way to mark a not-yet-verified company as trusted. Checking it
+  // does nothing on its own — the verdict only actually saves at the moment
+  // "Apply with AI prefill" is clicked (see that handler below). Checked
+  // state is tracked in pendingVerifiedJobIds, not just left on the DOM
+  // element, so it survives Generate Resume/Hide/favorite/etc. — all of
   // which re-render this card from scratch. Hidden once the company is
-  // already priority (redundant with the "Verified" badge above) or once
-  // you've actually applied, since the legitimacy call stops mattering then.
+  // already priority (redundant with the checkmark above) or once you've
+  // actually applied, since the trust call stops mattering then.
   const legitControl = !job.priority && !isApplied
-    ? `<label class="legit-check"><input type="checkbox" class="legit-checkbox" ${pendingVerifiedJobIds.has(job.id) ? "checked" : ""} /> Verify Company</label>`
+    ? `<label class="legit-check"><input type="checkbox" class="legit-checkbox" ${pendingVerifiedJobIds.has(job.id) ? "checked" : ""} /> Trust</label>`
     : "";
 
   // Set once, permanently, the moment "Optimize CV" is clicked (see
@@ -313,10 +394,10 @@ function jobCard(job) {
   return `
     <div class="card ${job.priority ? "priority-card" : ""}" data-id="${job.id}" data-company="${escapeHtml(job.company)}" data-url="${escapeHtml(job.url)}">
       <div class="card-header">
-        <h3 class="card-title"><a href="${escapeHtml(job.url)}" target="_blank" rel="noopener" class="title-link">${escapeHtml(job.title)}</a> - <span class="company">${escapeHtml(job.company)}</span></h3>
+        <h3 class="card-title"><a href="${escapeHtml(job.url)}" target="_blank" rel="noopener" class="title-link">${escapeHtml(job.title)}</a> - <span class="company">${companyCheck}${escapeHtml(job.company)}</span></h3>
         <div class="card-badges">
-          ${priorityBadge}
           ${badgeGroup}
+          ${excludeControl}
         </div>
       </div>
       <div class="meta">
@@ -330,9 +411,7 @@ function jobCard(job) {
         ${isApplied ? favoriteControl : ""}
         ${applyControl}
         ${isApplied ? "" : favoriteControl}
-        ${hideControl}
         ${flagCompanyControl}
-        ${excludeControl}
         <span class="links">
           ${legitControl}
           <a href="${escapeHtml(job.url)}" target="_blank" rel="noopener">View posting ${icons.external}</a>
@@ -340,10 +419,7 @@ function jobCard(job) {
           ${hasDocs ? `<a href="/files/${encodeURIComponent(job.cover_letter_path.split("/").slice(-2).join("/"))}" target="_blank">Cover letter</a>` : ""}
         </span>
       </div>
-      <div class="apply-error" hidden>
-        Generate a resume for this first.
-        <button class="dismiss-error-btn" aria-label="Dismiss">&times;</button>
-      </div>
+      <div class="card-message" hidden></div>
     </div>
   `;
 }
@@ -401,15 +477,12 @@ function renderJobs() {
         job.company.toLowerCase().includes(query),
     );
 
-  // Unlike Current/Archived (which just reflect date_found), "applied" and
-  // "hidden" are explicit actions with their own timestamps (applied_date /
-  // dismissed_at) — so show the most recent action first, ignoring the
-  // priority-company grouping the other tabs use, so it actually reflects
-  // the order things happened in.
+  // Unlike Current/Archived (which just reflect date_found), "applied" is an
+  // explicit action with its own timestamp (applied_date) — so show the
+  // most recent application first, ignoring the priority-company grouping
+  // the other tabs use, so it actually reflects the order things happened in.
   if (currentTab === "applied") {
     jobs.sort((a, b) => (b.applied_date ?? "").localeCompare(a.applied_date ?? ""));
-  } else if (currentTab === "hidden") {
-    jobs.sort((a, b) => (b.dismissed_at ?? "").localeCompare(a.dismissed_at ?? ""));
   }
 
   // Favorited jobs always float to the top of whichever tab they're in —
@@ -429,7 +502,6 @@ function renderJobs() {
     current: `No jobs yet. Ask Claude to add the companies you want to track, then click "Scan for new jobs".`,
     applied: "Nothing here yet — jobs you mark as applied will show up in this tab.",
     archived: "Nothing archived yet — jobs land here automatically once they're no longer from today.",
-    hidden: "Nothing hidden — jobs you hide will show up here.",
   };
   emptyEl.textContent = emptyMessages[currentTab];
   emptyEl.hidden = jobs.length > 0;
@@ -451,7 +523,6 @@ function renderJobs() {
     current: `Pulled ${jobs.length} job${jobs.length === 1 ? "" : "s"} over ${durationLabel}`,
     applied: "",
     archived: `All jobs before ${cutoffDate}`,
-    hidden: "",
   };
   filterNoteEl.textContent = filterNotes[currentTab];
 
@@ -470,6 +541,12 @@ function renderJobs() {
 
   jobsEl.innerHTML = pageJobs.map(jobCard).join("");
   wireJobCardEvents();
+
+  if (pendingCardMessage) {
+    const targetCard = jobsEl.querySelector(`.card[data-id="${pendingCardMessage.jobId}"]`);
+    if (targetCard) showCardMessage(targetCard, pendingCardMessage.text, pendingCardMessage.tone);
+    pendingCardMessage = null;
+  }
 }
 
 async function loadJobs() {
@@ -493,6 +570,7 @@ function wireJobCardEvents() {
 
     const requestBtn = card.querySelector(".request-btn");
     requestBtn?.addEventListener("click", async (e) => {
+      if (!requireProfile()) return;
       const btn = e.currentTarget;
       const originalHTML = btn.innerHTML;
       btn.disabled = true;
@@ -500,40 +578,43 @@ function wireJobCardEvents() {
       try {
         const task = fetch(`/api/jobs/${id}/request-generation`, { method: "POST" });
         await (useSpinner ? Promise.all([task, sleep(1000)]) : task);
-        await loadJobs();
         // Real backend flag either way (status "requested" + apply_order
-        // assigned) — demo mode only adds this popup on top, standing in for
-        // the real "Claude wrote your resume" moment for UX-testing purposes.
-        if (demoMode) alert("Resume ready");
+        // assigned) — that's what unlocks Apply (see applyReady below), so
+        // "ready" is accurate in both modes even though the real mode's
+        // actual resume file gets written afterward, by Claude, elsewhere.
+        queueCardMessage(
+          id,
+          demoMode ? "Your optimized resume is ready — go get that job!" : "Your resume is ready — go get that job!",
+          "success",
+        );
+        await loadJobs();
       } catch (err) {
-        alert(`Failed to request generation: ${err.message}`);
+        showCardMessage(card, `Couldn't request your resume: ${err.message}`, "error");
         btn.disabled = false;
         btn.innerHTML = originalHTML;
       }
     });
 
-    const applyErrorEl = card.querySelector(".apply-error");
-    card.querySelector(".dismiss-error-btn")?.addEventListener("click", () => {
-      applyErrorEl.hidden = true;
-    });
-
     card.querySelector(".apply-btn")?.addEventListener("click", async (e) => {
+      // A whole-account gate, not a per-job issue, so it re-surfaces the
+      // top-level notice rather than a per-card message — and blocks before
+      // the job posting even opens in a new tab.
+      if (!requireProfile()) return;
       const btn = e.currentTarget;
       // Always clickable now — if no resume is ready yet, show the inline
       // dismissible error instead of doing anything, rather than disabling
       // the button up front.
       if (btn.dataset.ready !== "true") {
-        applyErrorEl.hidden = false;
+        showCardMessage(card, "Generate a resume for this one first, then you're ready to apply.", "error");
         return;
       }
-      applyErrorEl.hidden = true;
+      card.querySelector(".card-message").hidden = true;
 
       const originalHTML = btn.innerHTML;
       btn.disabled = true;
       if (useSpinner) btn.innerHTML = `<span class="spinner"></span> ${originalHTML}`;
 
       window.open(url, "_blank", "noopener");
-      if (demoMode) alert("Job applied");
 
       // "Verify Company" (if present and checked) only actually saves right
       // here, at the moment of applying — see the checkbox's own comment
@@ -550,19 +631,26 @@ function wireJobCardEvents() {
       // Applying is now considered done the moment you click through —
       // moves the job straight to the Applied Jobs tab.
       try {
-        const task = Promise.all([fetch(`/api/jobs/${id}/mark-applied`, { method: "POST" }), verdictTask]);
-        await (useSpinner ? Promise.all([task, sleep(1000)]) : task);
-        // Only New Jobs cards get this banner — Hidden Jobs also has an
-        // apply-btn (for a not-yet-applied job that was hidden), and that
-        // flow shouldn't claim credit for a "New Jobs" confirmation.
-        if (currentTab === "current") {
-          applyNoticeTextEl.textContent = "The applied job opened in a new tab — it's now in your Applied Jobs tab.";
-          applyNoticeEl.hidden = false;
+        const markPromise = fetch(`/api/jobs/${id}/mark-applied`, { method: "POST" });
+        const task = Promise.all([markPromise, verdictTask]);
+        const [[markRes]] = await (useSpinner ? Promise.all([task, sleep(1000)]) : Promise.all([task]));
+        if (!markRes.ok) {
+          const body = await markRes.json().catch(() => ({}));
+          throw new Error(body.error ?? "Failed to mark as applied.");
         }
+        // Wording differs slightly by tab (New Jobs is the only place the
+        // job visibly leaves the current view), but the confirmation shows
+        // everywhere now instead of only for demo mode.
+        showBanner(
+          currentTab === "current"
+            ? "Opened in a new tab and moved to your Applied Jobs — you're on a roll!"
+            : "Marked as applied — you're one step closer!",
+          "success",
+        );
         await loadJobs();
         if (currentTab === "current") window.scrollTo(0, 0);
       } catch (err) {
-        alert(`Failed to mark as applied: ${err.message}`);
+        showCardMessage(card, `Couldn't mark this as applied: ${err.message}`, "error");
         btn.disabled = false;
         btn.innerHTML = originalHTML;
       }
@@ -571,6 +659,10 @@ function wireJobCardEvents() {
     card.querySelector(".pipeline-select")?.addEventListener("change", async (e) => {
       const stage = e.target.value;
       const previousStage = e.target.dataset.current;
+      if (!requireProfile()) {
+        e.target.value = previousStage;
+        return;
+      }
       e.target.disabled = true;
       try {
         await fetch(`/api/jobs/${id}/pipeline-stage`, {
@@ -578,15 +670,17 @@ function wireJobCardEvents() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ stage }),
         });
+        queueCardMessage(id, `Updated — now tracking as "${stage}".`, "success");
         await loadJobs();
       } catch (err) {
-        alert(`Failed to update status: ${err.message}`);
+        showCardMessage(card, `Couldn't update the status: ${err.message}`, "error");
         e.target.value = previousStage;
         e.target.disabled = false;
       }
     });
 
     card.querySelector(".favorite-btn")?.addEventListener("click", async (e) => {
+      if (!requireProfile()) return;
       const btn = e.currentTarget;
       const favorited = btn.dataset.favorited !== "true";
       btn.disabled = true;
@@ -596,48 +690,54 @@ function wireJobCardEvents() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ favorited }),
         });
+        queueCardMessage(id, favorited ? "Added to your favorites!" : "Removed from favorites.", "success");
+        // Favoriting re-sorts the job to the very top of the (unpaginated)
+        // list — if that moves it onto a different page than the one
+        // currently shown, staying on the old page number made it look like
+        // favoriting had silently done nothing (only fixed by reloading or
+        // switching tabs, both of which happen to reset this too). Jump back
+        // to page 1 so "float to top" is actually visible right away.
+        currentPage = 1;
         await loadJobs();
       } catch (err) {
-        alert(`Failed to ${favorited ? "favorite" : "unfavorite"}: ${err.message}`);
-        btn.disabled = false;
-      }
-    });
-
-    card.querySelector(".hide-btn")?.addEventListener("click", async (e) => {
-      const btn = e.currentTarget;
-      const wasHidden = btn.dataset.hidden === "true";
-      btn.disabled = true;
-      try {
-        await fetch(`/api/jobs/${id}/${wasHidden ? "unhide" : "dismiss"}`, { method: "POST" });
-        await loadJobs();
-      } catch (err) {
-        alert(`Failed to ${wasHidden ? "unhide" : "hide"}: ${err.message}`);
+        showCardMessage(card, `Couldn't ${favorited ? "favorite" : "unfavorite"} this job: ${err.message}`, "error");
         btn.disabled = false;
       }
     });
 
     card.querySelector(".exclude-btn")?.addEventListener("click", async (e) => {
-      if (!confirm("Delete this job? It cannot be fetched again.")) return;
+      if (!requireProfile()) return;
+      if (!confirm("Delete this job? Once it's gone, we can't pull it back in again.")) return;
       const btn = e.currentTarget;
       btn.disabled = true;
       try {
         await fetch(`/api/jobs/${id}/exclude`, { method: "POST" });
+        // The card itself is gone after this (excluded jobs never render
+        // again, in any tab) — no container left to put the message in, so
+        // this is one of the few actions that still reports via the page
+        // banner.
+        showBanner("Deleted — that one's gone for good.", "success");
         await loadJobs();
       } catch (err) {
-        alert(`Failed to exclude: ${err.message}`);
+        showCardMessage(card, `Couldn't delete this job: ${err.message}`, "error");
         btn.disabled = false;
       }
     });
 
     card.querySelector(".flag-company-btn")?.addEventListener("click", async (e) => {
-      if (!confirm(`Flag ${company} as a scam company? All of their postings will be removed and they won't be added again.`)) return;
+      if (!requireProfile()) return;
+      if (!confirm(`Flag ${company} as a scam company? We'll clear out all of their postings and won't add new ones.`)) return;
       const btn = e.currentTarget;
       btn.disabled = true;
       try {
         await fetch(`/api/jobs/${id}/flag-company`, { method: "POST" });
+        // Every job from this company (not just this card) is gone after
+        // this, so — same reasoning as Exclude above — the page banner is
+        // the only place left to report it.
+        showBanner(`Flagged ${company} and cleared out all their postings.`, "success");
         await loadJobs();
       } catch (err) {
-        alert(`Failed to flag company: ${err.message}`);
+        showCardMessage(card, `Couldn't flag ${company}: ${err.message}`, "error");
         btn.disabled = false;
       }
     });
@@ -678,6 +778,7 @@ dummyBtn.addEventListener("click", async () => {
     addJobUrlInput.focus();
     return;
   }
+  if (!requireProfile()) return;
 
   dummyBtn.disabled = true;
   try {
@@ -687,10 +788,11 @@ dummyBtn.addEventListener("click", async () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ locationType: locationFilter.value }),
     });
+    showBanner("Demo job added — right at the top of your list!", "success");
     await loadJobs();
     window.scrollTo({ top: 0, behavior: "smooth" });
   } catch (err) {
-    alert(`Failed to add dummy job: ${err.message}`);
+    showBanner(`Couldn't add that demo job: ${err.message}`, "error");
   } finally {
     dummyBtn.disabled = false;
   }
@@ -700,30 +802,9 @@ addJobCancelBtn.addEventListener("click", () => {
   addJobModal.hidden = true;
 });
 
-// The gear menu by "Scan for new jobs" — Facebook-style dropdown, closes on
-// an outside click, Escape, or picking an item. "User settings" doesn't go
-// anywhere yet; "Job settings" opens the slide-out drawer below.
-function closeSettingsMenu() {
-  settingsMenu.hidden = true;
-  settingsGearBtn.setAttribute("aria-expanded", "false");
-}
-
-settingsGearBtn.addEventListener("click", (e) => {
-  e.stopPropagation();
-  const willOpen = settingsMenu.hidden;
-  settingsMenu.hidden = !willOpen;
-  settingsGearBtn.setAttribute("aria-expanded", String(willOpen));
-});
-
-document.addEventListener("click", (e) => {
-  if (!settingsMenu.hidden && !e.target.closest(".settings-wrap")) closeSettingsMenu();
-});
-
-document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && !settingsMenu.hidden) closeSettingsMenu();
-});
-
-// --- Job Settings drawer ---------------------------------------------
+// --- Job Settings drawer -----------------------------------------------
+// Includes what used to be the separate User Settings drawer (Scan location
+// + Resume, now the "User" tab) — see the third drawer-pane below.
 
 // The in-progress edit — loaded fresh from the server each time the drawer
 // opens, only written back on Save (so closing without saving discards it).
@@ -815,23 +896,46 @@ function renderAllTermLists() {
   });
 }
 
+// Auto-expands any accordion with fewer than 5 entries when the drawer/
+// onboarding panel opens — a short list doesn't need to start collapsed the
+// way the 100+-company lists this pattern was built for do. Only makes
+// sense once jobSettingsDraft is actually loaded, so callers run this after
+// their fetch, not before.
+function applyDefaultCollapse() {
+  ["priorityCompanies", "bannedCompanies", "includeTerms", "excludeTerms"].forEach((key) => {
+    setSectionCollapsed(key, jobSettingsDraft[key].length >= 5);
+  });
+}
+
 async function openJobSettingsDrawer() {
-  closeSettingsMenu();
   jobSettingsClearAllCheck.checked = false;
+  jobSettingsMessage.hidden = true;
   ["priorityCompanies", "bannedCompanies", "includeTerms", "excludeTerms"].forEach((key) => {
     termSearchQueries[key] = "";
-    setSectionCollapsed(key, true);
   });
   document.querySelectorAll("[data-term-search]").forEach((input) => {
     input.value = "";
   });
+  resumeError.hidden = true;
+  resumeFileInput.value = "";
   try {
     jobSettingsDraft = await (await fetch("/api/jobs/job-settings")).json();
+    renderAllTermLists();
+    applyDefaultCollapse();
+    const settings = await (await fetch("/api/user-settings")).json();
+    const city = settings.scanLocation?.city ?? "";
+    const radiusMiles = settings.scanLocation?.radiusMiles ?? 0;
+    userScanCityInput.value = city;
+    userScanRadiusSelect.value = String(radiusMiles);
+    renderScanLocationChip(city, radiusMiles);
+    renderResumeState(settings.resumeFilename);
+    userFirstNameInput.value = settings.profile?.firstName ?? "";
+    userLastNameInput.value = settings.profile?.lastName ?? "";
+    userEmailInput.value = settings.profile?.email ?? "";
   } catch (err) {
-    alert(`Failed to load job settings: ${err.message}`);
+    showBanner(`Couldn't load your settings: ${err.message}`, "error");
     return;
   }
-  renderAllTermLists();
   jobSettingsOverlay.hidden = false;
 }
 
@@ -856,6 +960,7 @@ drawerTabButtons.forEach((btn) => {
     drawerTabButtons.forEach((b) => b.classList.toggle("active", b === btn));
     document.getElementById("drawer-pane-companies").hidden = btn.dataset.drawerTab !== "companies";
     document.getElementById("drawer-pane-title").hidden = btn.dataset.drawerTab !== "title";
+    document.getElementById("drawer-pane-user").hidden = btn.dataset.drawerTab !== "user";
   });
 });
 
@@ -916,7 +1021,7 @@ jobSettingsSaveBtn.addEventListener("click", async () => {
   if (
     clearAll &&
     !confirm(
-      "This will permanently delete ALL jobs — including your Applied and Hidden job history — before rescanning. This cannot be undone. Continue?",
+      "This will permanently delete ALL jobs — including your Applied job history — before rescanning. This can't be undone. Continue?",
     )
   ) {
     return;
@@ -926,32 +1031,59 @@ jobSettingsSaveBtn.addEventListener("click", async () => {
   jobSettingsSaveBtn.disabled = true;
   // Saving now also triggers a full rescan (see the server route) so
   // changed criteria apply to fresh postings right away — that takes a lot
-  // longer than a plain save, so show it's actually working.
+  // longer than a plain save, so show it's actually working. Also saves the
+  // User tab's scan location alongside companies/terms — one Save button
+  // for the whole drawer now that User Settings isn't a separate drawer.
   jobSettingsSaveBtn.innerHTML = `<span class="spinner"></span> Saving & scanning...`;
   try {
-    const res = await fetch("/api/jobs/job-settings", {
+    let res = await fetch("/api/jobs/job-settings", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...jobSettingsDraft, clearAll }),
     });
     if (!res.ok) throw new Error((await res.json()).error ?? "Save failed.");
+    res = await fetch("/api/user-settings/scan-location", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        city: userScanCityInput.value.trim(),
+        radiusMiles: Number(userScanRadiusSelect.value),
+      }),
+    });
+    if (!res.ok) throw new Error((await res.json()).error ?? "Save failed.");
+    res = await fetch("/api/user-settings/profile", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        firstName: userFirstNameInput.value.trim(),
+        lastName: userLastNameInput.value.trim(),
+        email: userEmailInput.value.trim(),
+      }),
+    });
+    if (!res.ok) throw new Error((await res.json()).error ?? "Save failed.");
+    await refreshUserProfile();
     closeJobSettingsDrawer();
     landOnNewJobsTab();
     await loadJobs();
-    applyNoticeTextEl.textContent = "New jobs have been pulled based on your latest settings.";
-    applyNoticeEl.hidden = false;
+    showBanner(
+      clearAll
+        ? "All clear! Job history wiped and fresh jobs pulled in."
+        : "Settings saved! Fresh jobs pulled in to match — take a look.",
+      "success",
+    );
     window.scrollTo(0, 0);
   } catch (err) {
-    alert(`Failed to save job settings: ${err.message}`);
+    // Drawer stays open on failure, so the message goes inline here instead
+    // of the page-level banner, which would be out of view behind it.
+    jobSettingsMessage.textContent = `Couldn't save your job settings: ${err.message}`;
+    jobSettingsMessage.hidden = false;
   } finally {
     jobSettingsSaveBtn.disabled = false;
     jobSettingsSaveBtn.innerHTML = originalHTML;
   }
 });
 
-// --- User Settings drawer ---------------------------------------------
-
-// Updates both the User Settings drawer's copy and the onboarding panel's
+// Updates both the Job Settings drawer's User tab and the onboarding panel's
 // copy together — same underlying resume, shown in two places.
 function renderResumeState(resumeFilename) {
   [
@@ -987,26 +1119,6 @@ function renderScanLocationChip(city, radiusMiles) {
   });
 }
 
-async function openUserSettingsDrawer() {
-  closeSettingsMenu();
-  resumeError.hidden = true;
-  resumeFileInput.value = "";
-  userSettingsClearAllCheck.checked = false;
-  try {
-    const settings = await (await fetch("/api/user-settings")).json();
-    const city = settings.scanLocation?.city ?? "";
-    const radiusMiles = settings.scanLocation?.radiusMiles ?? 0;
-    userScanCityInput.value = city;
-    userScanRadiusSelect.value = String(radiusMiles);
-    renderScanLocationChip(city, radiusMiles);
-    renderResumeState(settings.resumeFilename);
-  } catch (err) {
-    alert(`Failed to load user settings: ${err.message}`);
-    return;
-  }
-  userSettingsOverlay.hidden = false;
-}
-
 function clearScanLocationInputs(cityInput, radiusSelect, currentRow) {
   cityInput.value = "";
   radiusSelect.value = "0";
@@ -1020,60 +1132,6 @@ onboardingScanLocationRemoveBtn.addEventListener("click", () =>
   clearScanLocationInputs(onboardingScanCityInput, onboardingScanRadiusSelect, onboardingScanLocationCurrentRow),
 );
 
-function closeUserSettingsDrawer() {
-  userSettingsOverlay.hidden = true;
-}
-
-userSettingsBtn.addEventListener("click", openUserSettingsDrawer);
-userSettingsCloseBtn.addEventListener("click", closeUserSettingsDrawer);
-userSettingsOverlay.addEventListener("click", (e) => {
-  if (e.target === userSettingsOverlay) closeUserSettingsDrawer();
-});
-document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && !userSettingsOverlay.hidden) closeUserSettingsDrawer();
-});
-
-userSettingsSaveBtn.addEventListener("click", async () => {
-  const clearAll = userSettingsClearAllCheck.checked;
-  if (
-    clearAll &&
-    !confirm(
-      "This will permanently delete ALL jobs — including your Applied and Hidden job history — before rescanning. This cannot be undone. Continue?",
-    )
-  ) {
-    return;
-  }
-
-  const originalHTML = userSettingsSaveBtn.innerHTML;
-  userSettingsSaveBtn.disabled = true;
-  // Saving also triggers a full rescan (see the server route), same as Job
-  // Settings — show it's actually working, since that takes a while.
-  userSettingsSaveBtn.innerHTML = `<span class="spinner"></span> Saving & scanning...`;
-  try {
-    const res = await fetch("/api/user-settings/scan-location", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        city: userScanCityInput.value.trim(),
-        radiusMiles: Number(userScanRadiusSelect.value),
-        clearAll,
-      }),
-    });
-    if (!res.ok) throw new Error((await res.json()).error ?? "Save failed.");
-    closeUserSettingsDrawer();
-    landOnNewJobsTab();
-    await loadJobs();
-    applyNoticeTextEl.textContent = "New jobs have been pulled based on your latest settings.";
-    applyNoticeEl.hidden = false;
-    window.scrollTo(0, 0);
-  } catch (err) {
-    alert(`Failed to save scan location: ${err.message}`);
-  } finally {
-    userSettingsSaveBtn.disabled = false;
-    userSettingsSaveBtn.innerHTML = originalHTML;
-  }
-});
-
 function fileToBase64(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -1083,13 +1141,21 @@ function fileToBase64(file) {
   });
 }
 
-// Shared by the User Settings drawer's resume upload and the onboarding
-// panel's copy of it — same endpoint, same behavior, different elements.
+// Shared by the Job Settings drawer's resume upload (User tab) and the
+// onboarding panel's copy of it — same endpoint, same behavior, different elements.
+// Shared by every inline "message below" slot that isn't the page-level
+// banner (resume upload/remove, add-job-by-URL) — same element, same
+// dismiss-by-replacement behavior, just green or red text via .tone-success.
+function showFieldMessage(el, text, tone = "error") {
+  el.textContent = text;
+  el.classList.toggle("tone-success", tone === "success");
+  el.hidden = false;
+}
+
 async function uploadResume(fileInputEl, errorEl, uploadBtnEl) {
   const file = fileInputEl.files[0];
   if (!file) {
-    errorEl.textContent = "Choose a file first.";
-    errorEl.hidden = false;
+    showFieldMessage(errorEl, "Choose a resume file to upload first.", "error");
     return;
   }
   uploadBtnEl.disabled = true;
@@ -1105,40 +1171,41 @@ async function uploadResume(fileInputEl, errorEl, uploadBtnEl) {
     if (!res.ok) throw new Error(result.error ?? "Upload failed.");
     renderResumeState(result.resumeFilename);
     fileInputEl.value = "";
+    showFieldMessage(errorEl, `${result.resumeFilename} uploaded — you're good to go!`, "success");
   } catch (err) {
-    errorEl.textContent = err.message;
-    errorEl.hidden = false;
+    showFieldMessage(errorEl, `Couldn't upload your resume: ${err.message}`, "error");
   } finally {
     uploadBtnEl.disabled = false;
   }
 }
 
-async function removeResume(removeBtnEl) {
-  if (!confirm("Remove the uploaded resume?")) return;
+async function removeResume(removeBtnEl, errorEl) {
+  if (!confirm("Remove your uploaded resume?")) return;
   removeBtnEl.disabled = true;
   try {
     await fetch("/api/user-settings/resume", { method: "DELETE" });
     renderResumeState(null);
+    showFieldMessage(errorEl, "Resume removed — all clear.", "success");
   } catch (err) {
-    alert(`Failed to remove resume: ${err.message}`);
+    showFieldMessage(errorEl, `Couldn't remove your resume: ${err.message}`, "error");
   } finally {
     removeBtnEl.disabled = false;
   }
 }
 
 resumeUploadBtn.addEventListener("click", () => uploadResume(resumeFileInput, resumeError, resumeUploadBtn));
-resumeRemoveBtn.addEventListener("click", () => removeResume(resumeRemoveBtn));
+resumeRemoveBtn.addEventListener("click", () => removeResume(resumeRemoveBtn, resumeError));
 onboardingResumeUploadBtn.addEventListener("click", () =>
   uploadResume(onboardingResumeFileInput, onboardingResumeError, onboardingResumeUploadBtn),
 );
-onboardingResumeRemoveBtn.addEventListener("click", () => removeResume(onboardingResumeRemoveBtn));
+onboardingResumeRemoveBtn.addEventListener("click", () => removeResume(onboardingResumeRemoveBtn, onboardingResumeError));
 
 // --- Onboarding panel (Demo mode only) ---------------------------------
 
-// Loads the same data the Job Settings/User Settings drawers show, into the
-// onboarding panel's copies of that same UI (see the render* broadcast
-// helpers above), then hides the job list on every tab in favor of the
-// panel until "Finish setup".
+// Loads the same data the Job Settings drawer shows, into the onboarding
+// panel's copies of that same UI (see the render* broadcast helpers above),
+// then hides the job list on every tab in favor of the panel until "Finish
+// setup".
 async function openOnboarding() {
   onboardingActive = true;
   getStartedBtn.hidden = true;
@@ -1148,9 +1215,12 @@ async function openOnboarding() {
   jobsEl.hidden = true;
   pageFooterEl.hidden = true;
   onboardingPanel.hidden = false;
+  // In case the panel was left mid-"Finish setup" from a prior open (a
+  // successful run leaves the loading view showing) — always start a fresh
+  // open on the actual form.
+  stopOnboardingProgress();
   ["priorityCompanies", "bannedCompanies", "includeTerms", "excludeTerms"].forEach((key) => {
     termSearchQueries[key] = "";
-    setSectionCollapsed(key, true);
   });
   document.querySelectorAll("[data-term-search]").forEach((input) => {
     input.value = "";
@@ -1159,6 +1229,7 @@ async function openOnboarding() {
   try {
     jobSettingsDraft = await (await fetch("/api/jobs/job-settings")).json();
     renderAllTermLists();
+    applyDefaultCollapse();
     const settings = await (await fetch("/api/user-settings")).json();
     const city = settings.scanLocation?.city ?? "";
     const radiusMiles = settings.scanLocation?.radiusMiles ?? 0;
@@ -1166,6 +1237,9 @@ async function openOnboarding() {
     onboardingScanRadiusSelect.value = String(radiusMiles);
     renderScanLocationChip(city, radiusMiles);
     renderResumeState(settings.resumeFilename);
+    onboardingFirstNameInput.value = settings.profile?.firstName ?? "";
+    onboardingLastNameInput.value = settings.profile?.lastName ?? "";
+    onboardingEmailInput.value = settings.profile?.email ?? "";
     // A step is only ever required because it started with nothing in it —
     // decided here, once, from what was just loaded, not re-checked against
     // "current" data later (see the comment on the declaration above).
@@ -1180,7 +1254,8 @@ async function openOnboarding() {
     onboardingResumeRequired.hidden = !onboardingRequired.resume;
     onboardingLocationRequired.hidden = !onboardingRequired.location;
   } catch (err) {
-    alert(`Failed to load onboarding data: ${err.message}`);
+    onboardingError.textContent = `Couldn't load your setup data: ${err.message}`;
+    onboardingError.hidden = false;
   }
   window.scrollTo(0, 0);
 }
@@ -1196,28 +1271,95 @@ function closeOnboarding() {
 
 getStartedBtn.addEventListener("click", openOnboarding);
 
+// Bails out of setup entirely — no validation, no save. Whatever's already
+// been filled in (a resume upload, a saved location) stays saved, since
+// those save immediately on their own actions; only Companies/Job
+// Title/Profile, which only save on Finish setup, are discarded.
+onboardingSkipBtn.addEventListener("click", () => {
+  closeOnboarding();
+});
+
+// Fun, rotating filler for the ~30s Finish setup wait (one full scan across
+// every tracked company's job board) — cycles on a timer, loops back to the
+// start if it outlasts the list. Purely cosmetic, no relation to what the
+// scan is actually doing at any given moment.
+const ONBOARDING_LOADING_MESSAGES = [
+  "Scanning job boards for your perfect match...",
+  "Knocking on career pages, politely...",
+  "Cross-referencing every company on your list...",
+  "Filtering out anything that smells like a scam...",
+  "Sorting the good stuff to the top...",
+  "Double-checking so nothing slips through the cracks...",
+  "Matching titles to what you're actually looking for...",
+  "Almost there — packing up your personalized list...",
+];
+
+let onboardingProgressTimer = null;
+let onboardingMessageTimer = null;
+
+// No real progress events exist for this (the scan is one long request, not
+// a stream) — this fakes it: crawls toward a cap over time, slowing as it
+// approaches, then the caller snaps it to 100% the moment the save+scan
+// actually resolves. Swaps the whole form out for the progress view (see
+// .onboarding-form-section) since a static "Saving..." label alone reads as
+// hung across a wait this long.
+function startOnboardingProgress() {
+  onboardingFormSection.hidden = true;
+  onboardingLoading.hidden = false;
+  let progress = 6;
+  const cap = 92;
+  onboardingProgressFill.style.width = `${progress}%`;
+  onboardingProgressTimer = setInterval(() => {
+    progress += (cap - progress) * 0.06;
+    onboardingProgressFill.style.width = `${Math.min(progress, cap)}%`;
+  }, 400);
+
+  let messageIndex = 0;
+  onboardingLoadingMessage.textContent = ONBOARDING_LOADING_MESSAGES[0];
+  onboardingMessageTimer = setInterval(() => {
+    messageIndex = (messageIndex + 1) % ONBOARDING_LOADING_MESSAGES.length;
+    onboardingLoadingMessage.textContent = ONBOARDING_LOADING_MESSAGES[messageIndex];
+  }, 2600);
+}
+
+// Used on the error path — the form comes back so the user can fix
+// whatever failed and retry. The success path handles its own progress ->
+// 100% -> reveal sequence inline instead (see onboardingFinishBtn below),
+// since it needs the fresh job list ready before switching away from this
+// view, not just the bar to stop.
+function stopOnboardingProgress() {
+  clearInterval(onboardingProgressTimer);
+  clearInterval(onboardingMessageTimer);
+  onboardingLoading.hidden = true;
+  onboardingFormSection.hidden = false;
+  onboardingProgressFill.style.width = "6%";
+}
+
 onboardingFinishBtn.addEventListener("click", async () => {
-  // Only steps that started with nothing in them are enforced (see
-  // onboardingRequired) — checked against current values, so filling one in
-  // and clicking Finish setup clears its error immediately.
+  // Companies/Job Title/Resume/Location are only required if they started
+  // empty (see onboardingRequired); Profile (name + email) is always
+  // required, full stop — applying to a job needs it (see
+  // isProfileComplete server-side), so there's no "started non-empty" case
+  // to exempt it from.
   const missing = [];
   if (onboardingRequired.companies && jobSettingsDraft.priorityCompanies.length === 0) missing.push("Add companies");
   if (onboardingRequired.title && jobSettingsDraft.includeTerms.length === 0) missing.push("Add job title");
   if (onboardingRequired.resume && onboardingResumeCurrentRow.hidden) missing.push("Add resume");
   if (onboardingRequired.location && !onboardingScanCityInput.value.trim()) missing.push("Add locations");
+  if (!onboardingFirstNameInput.value.trim() || !onboardingLastNameInput.value.trim()) missing.push("Add your name");
+  if (!onboardingEmailInput.value.trim().includes("@")) missing.push("Add a valid email");
   if (missing.length > 0) {
-    onboardingError.textContent = `Please complete before continuing: ${missing.join(", ")}.`;
+    onboardingError.textContent = `Just a few more things before you're set: ${missing.join(", ")}.`;
     onboardingError.hidden = false;
     return;
   }
   onboardingError.hidden = true;
 
-  const originalHTML = onboardingFinishBtn.innerHTML;
   onboardingFinishBtn.disabled = true;
-  onboardingFinishBtn.innerHTML = `<span class="spinner"></span> Saving & scanning...`;
+  startOnboardingProgress();
   try {
-    // Same two saves as the Job Settings and User Settings drawers' own Save
-    // buttons, just combined into one step here.
+    // Same three saves as the Job Settings drawer's own Save button, just
+    // combined into one step here.
     let res = await fetch("/api/jobs/job-settings", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -1233,24 +1375,54 @@ onboardingFinishBtn.addEventListener("click", async () => {
       }),
     });
     if (!res.ok) throw new Error((await res.json()).error ?? "Save failed.");
+    res = await fetch("/api/user-settings/profile", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        firstName: onboardingFirstNameInput.value.trim(),
+        lastName: onboardingLastNameInput.value.trim(),
+        email: onboardingEmailInput.value.trim(),
+      }),
+    });
+    if (!res.ok) throw new Error((await res.json()).error ?? "Save failed.");
+    await refreshUserProfile();
+    // Fetched here, before anything is revealed, so New Jobs shows up
+    // already populated instead of flashing its old/empty state and then
+    // filling in — "show contents when ready" means the fetch has to finish
+    // before the onboarding panel goes away, not after.
+    clearInterval(onboardingProgressTimer);
+    clearInterval(onboardingMessageTimer);
+    onboardingProgressFill.style.width = "100%";
+    onboardingLoadingMessage.textContent = "All set!";
+    allJobs = await (await fetch("/api/jobs")).json();
+    await sleep(400);
     closeOnboarding();
     landOnNewJobsTab();
-    await loadJobs();
-    applyNoticeTextEl.textContent = "You're all set — new jobs have been pulled based on your settings.";
-    applyNoticeEl.hidden = false;
+    renderJobs();
+    showBanner("You're all set! We've pulled in jobs that match your settings — happy hunting!", "success");
     window.scrollTo(0, 0);
   } catch (err) {
-    alert(`Failed to finish setup: ${err.message}`);
+    stopOnboardingProgress();
+    onboardingError.textContent = `Couldn't finish setup: ${err.message}`;
+    onboardingError.hidden = false;
   } finally {
     onboardingFinishBtn.disabled = false;
-    onboardingFinishBtn.innerHTML = originalHTML;
   }
 });
 
 addJobSubmitBtn.addEventListener("click", async () => {
+  // The modal overlay sits on top of the page-level notice (see
+  // requireProfile), so this checks isProfileComplete() directly and
+  // reports inline via addJobError instead — otherwise the real message
+  // would be invisible behind the modal.
+  if (!isProfileComplete()) {
+    addJobError.textContent = "Add your name and email in Job Settings before applying to jobs.";
+    addJobError.hidden = false;
+    return;
+  }
   const url = addJobUrlInput.value.trim();
   if (!url) {
-    addJobError.textContent = "Paste a job posting URL first.";
+    addJobError.textContent = "Drop in a job posting URL to get started.";
     addJobError.hidden = false;
     return;
   }
@@ -1273,6 +1445,7 @@ addJobSubmitBtn.addEventListener("click", async () => {
     if (result.job) justImportedJobId = result.job.id;
     await loadJobs();
     window.scrollTo({ top: 0, behavior: "smooth" });
+    showBanner("Imported! Pinned to the top of New Jobs — go check it out.", "success");
   } catch (err) {
     addJobError.textContent = err.message;
     addJobError.hidden = false;
@@ -1281,35 +1454,22 @@ addJobSubmitBtn.addEventListener("click", async () => {
   }
 });
 
-undoBtn.addEventListener("click", async () => {
-  undoBtn.disabled = true;
-  try {
-    const res = await fetch("/api/jobs/undo-dismiss", { method: "POST" });
-    const result = await res.json();
-    if (result.restored) {
-      await loadJobs();
-    } else {
-      alert("Nothing to undo — no recently deleted job found.");
-    }
-  } catch (err) {
-    alert(`Failed to undo: ${err.message}`);
-  } finally {
-    undoBtn.disabled = false;
-  }
-});
-
 scanBtn.addEventListener("click", async () => {
+  if (!requireProfile()) return;
   scanBtn.disabled = true;
   scanBtn.textContent = "Scanning...";
   try {
     const res = await fetch("/api/jobs/scan", { method: "POST" });
     const result = await res.json();
     await loadJobs();
-    if (result.new === 0) {
-      alert(`Scan complete — no new postings (${result.found} total checked).`);
-    }
+    showBanner(
+      result.new === 0
+        ? `All caught up — no new postings this time (${result.found} checked).`
+        : `Found ${result.new} new job${result.new === 1 ? "" : "s"} for you! (${result.found} checked total)`,
+      "success",
+    );
   } catch (err) {
-    alert(`Scan failed: ${err.message}`);
+    showBanner(`Couldn't complete the scan: ${err.message}`, "error");
   } finally {
     scanBtn.disabled = false;
     scanBtn.textContent = "Scan for new jobs";
