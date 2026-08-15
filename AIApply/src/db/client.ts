@@ -676,3 +676,42 @@ export function isProfileComplete(): boolean {
   const profile = getUserProfile();
   return Boolean(profile.firstName.trim() && profile.lastName.trim() && profile.email.trim());
 }
+
+/** The AI opt-out toggle (Job Settings' User tab / onboarding welcome screen) — defaults to enabled. */
+export function getAiGenerationEnabled(): boolean {
+  const row = db.prepare("SELECT enabled FROM ai_generation_setting WHERE id = 1").get() as
+    | { enabled: number }
+    | undefined;
+  return row ? Boolean(row.enabled) : true;
+}
+
+export function setAiGenerationEnabled(enabled: boolean): void {
+  db.prepare(
+    `INSERT INTO ai_generation_setting (id, enabled) VALUES (1, ?)
+     ON CONFLICT(id) DO UPDATE SET enabled = excluded.enabled`,
+  ).run(enabled ? 1 : 0);
+}
+
+/**
+ * Wipes every job's application-progress fields back to a clean 'found'
+ * state — generated documents, applied status/date, hiring-pipeline stage,
+ * the whole "Optimize CV" request/apply-order trail. Run whenever the AI
+ * opt-out setting actually changes (see setAiGenerationEnabled's caller):
+ * once AI generation is toggled, a job's existing resume/cover-letter link
+ * or "ready to apply" state no longer matches the new mode, so it's cleared
+ * rather than left in a state the UI can't represent. Leaves favorited,
+ * priority, and manually_imported alone — those are curation flags, not
+ * application progress.
+ */
+export function resetAllJobsForAiToggle(): void {
+  db.exec(
+    `UPDATE jobs SET
+       status = 'found',
+       resume_path = NULL,
+       cover_letter_path = NULL,
+       applied_date = NULL,
+       requested_at = NULL,
+       apply_order = NULL,
+       pipeline_stage = NULL`,
+  );
+}

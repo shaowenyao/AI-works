@@ -1000,6 +1000,14 @@
         font-size: 0.78rem;
         color: var(--ios-red-text);
       }
+      .ai-optout-check {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.85rem;
+        font-weight: 500;
+        margin-top: 0.6rem;
+      }
       #job-settings-save-btn {
         border-radius: var(--ios-radius-pill);
       }
@@ -1574,6 +1582,19 @@
             </div>
           </div>
           <div class="onboarding-step">
+            <h3>AI-generated documents</h3>
+            <div class="source-info-box">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+              <span>By default, we use AI to generate a tailored resume and cover letter for each job before you apply. If you'd rather handle your own resume, you can opt out below — Generate Resume goes away and Apply just opens the posting directly.</span>
+            </div>
+            <label class="ai-optout-check">
+              <input type="checkbox" id="onboarding-ai-optout-check" />
+              Opt out of AI-generated resumes &amp; cover letters
+            </label>
+          </div>
+        </div>
+        <div class="onboarding-column">
+          <div class="onboarding-step">
             <h3>Add job title <span class="required-star" id="onboarding-title-required" hidden>*</span></h3>
             <div class="source-info-box">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
@@ -1608,8 +1629,6 @@
               </div>
             </div>
           </div>
-        </div>
-        <div class="onboarding-column">
           <div class="onboarding-step">
             <h3>Add resume <span class="required-star" id="onboarding-resume-required" hidden>*</span></h3>
             <div class="resume-current-row" id="onboarding-resume-current-row" hidden>
@@ -1805,6 +1824,17 @@
                 <button class="btn-dark" id="resume-upload-btn">Upload</button>
               </div>
               <p class="modal-error" id="resume-error" hidden></p>
+            </div>
+            <div class="term-section">
+              <h3 class="settings-section-title">AI-generated documents</h3>
+              <div class="source-info-box">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                <span>By default, we use AI to generate a tailored resume and cover letter for each job before you apply. If you'd rather handle your own resume, you can opt out below — Generate Resume goes away and Apply just opens the posting directly. Changing this resets every job (including ones you've already applied to) back to a clean state — any in-progress or completed application work is lost.</span>
+              </div>
+              <label class="ai-optout-check">
+                <input type="checkbox" id="user-ai-optout-check" />
+                Opt out of AI-generated resumes &amp; cover letters
+              </label>
             </div>
           </div>
         </div>

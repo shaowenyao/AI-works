@@ -67,3 +67,15 @@ CREATE TABLE IF NOT EXISTS user_profile (
   last_name TEXT NOT NULL DEFAULT '',
   email TEXT NOT NULL DEFAULT ''
 );
+
+-- Global opt-out for AI-generated resumes/cover letters (Job Settings' User
+-- tab and the onboarding welcome screen). Defaults to enabled (1) so
+-- existing installs keep today's behavior until someone explicitly opts
+-- out. Toggling it resets every job back to a clean 'found' state (see
+-- resetAllJobsForAiToggle) since a job's generated documents / apply-ready
+-- state stop making sense once the mode changes out from under them.
+-- Single row, id fixed at 1.
+CREATE TABLE IF NOT EXISTS ai_generation_setting (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  enabled INTEGER NOT NULL DEFAULT 1
+);

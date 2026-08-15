@@ -1,7 +1,17 @@
 import { Router } from "express";
 import { mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { getScanLocation, saveScanLocation, pruneOldArchivedJobs, clearAllJobs, getUserProfile, saveUserProfile } from "../db/client.js";
+import {
+  getScanLocation,
+  saveScanLocation,
+  pruneOldArchivedJobs,
+  clearAllJobs,
+  getUserProfile,
+  saveUserProfile,
+  getAiGenerationEnabled,
+  setAiGenerationEnabled,
+  resetAllJobsForAiToggle,
+} from "../db/client.js";
 import { scanJobs } from "../jobs/scan.js";
 
 export const userSettingsRouter = Router();
@@ -27,6 +37,7 @@ userSettingsRouter.get("/", (_req, res) => {
     scanLocation: getScanLocation(),
     resumeFilename: currentResumeFilename(),
     profile: getUserProfile(),
+    aiGenerationEnabled: getAiGenerationEnabled(),
   });
 });
 
@@ -42,6 +53,24 @@ userSettingsRouter.post("/profile", (req, res) => {
   try {
     saveUserProfile({ firstName, lastName, email });
     res.json({ profile: getUserProfile() });
+  } catch (err) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
+// The AI opt-out toggle (Job Settings' User tab / onboarding welcome
+// screen). Only actually resets job data when the value is genuinely
+// changing — called unconditionally from onboarding's Finish setup (which
+// shouldn't wipe existing jobs just because the value already matched), and
+// from Job Settings after its own confirm() popup warns that a real change
+// will reset every job.
+userSettingsRouter.post("/ai-generation", (req, res) => {
+  const enabled = req.body?.enabled === true;
+  try {
+    const changed = getAiGenerationEnabled() !== enabled;
+    setAiGenerationEnabled(enabled);
+    if (changed) resetAllJobsForAiToggle();
+    res.json({ aiGenerationEnabled: enabled, reset: changed });
   } catch (err) {
     res.status(500).json({ error: (err as Error).message });
   }

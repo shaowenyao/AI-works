@@ -11,7 +11,18 @@ const PORT = Number(process.env.PORT ?? 3000);
 // Default 100kb is too small for a resume upload (sent as base64 JSON, see
 // routes/userSettings.ts) — 15mb covers any realistic resume with headroom.
 app.use(express.json({ limit: "15mb" }));
-app.use(express.static(path.resolve("public")));
+// no-store on the frontend assets specifically — this app is under active
+// development and a stale cached app.js/index.html (browsers can serve
+// these from disk without revalidating, since there's no cache-busting
+// query string on the <script> tag) has caused real confusion where a
+// just-shipped fix looked like it wasn't working. Not worth the perf
+// tradeoff here since this is a local personal tool, not something serving
+// real traffic.
+app.use(
+  express.static(path.resolve("public"), {
+    setHeaders: (res) => res.setHeader("Cache-Control", "no-store"),
+  }),
+);
 // Serve generated resumes/cover letters so the UI can link/download them directly.
 app.use("/files", express.static(path.resolve("toapply-docs")));
 // Serve the uploaded resume from User Settings (see routes/userSettings.ts).

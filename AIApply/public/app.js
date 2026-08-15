@@ -55,6 +55,7 @@ const resumeRemoveBtn = document.getElementById("resume-remove-btn");
 const resumeFileInput = document.getElementById("resume-file-input");
 const resumeUploadBtn = document.getElementById("resume-upload-btn");
 const resumeError = document.getElementById("resume-error");
+const userAiOptoutCheck = document.getElementById("user-ai-optout-check");
 const getStartedBtn = document.getElementById("get-started-btn");
 const onboardingPanel = document.getElementById("onboarding-panel");
 const onboardingFinishBtn = document.getElementById("onboarding-finish-btn");
@@ -72,6 +73,7 @@ const onboardingResumeRemoveBtn = document.getElementById("onboarding-resume-rem
 const onboardingResumeFileInput = document.getElementById("onboarding-resume-file-input");
 const onboardingResumeUploadBtn = document.getElementById("onboarding-resume-upload-btn");
 const onboardingResumeError = document.getElementById("onboarding-resume-error");
+const onboardingAiOptoutCheck = document.getElementById("onboarding-ai-optout-check");
 const onboardingScanCityInput = document.getElementById("onboarding-scan-city-input");
 const onboardingScanRadiusSelect = document.getElementById("onboarding-scan-radius-select");
 const onboardingScanLocationCurrentRow = document.getElementById("onboarding-scan-location-current");
@@ -136,12 +138,27 @@ applyNoticeDismissBtn.addEventListener("click", () => {
 
 // Per-card feedback (Generate Resume, Apply-not-ready, pipeline status,
 // Favorite) reports into that same card's .card-message slot instead of the
-// page banner, so it stays next to the button that triggered it. Only used
-// when the card is guaranteed to still be on screen at the moment of the
-// call — see showCardMessage vs. queueCardMessage below.
-function showCardMessage(cardEl, text, tone = "success") {
-  const msgEl = cardEl?.querySelector(".card-message");
-  if (!msgEl) return;
+// page banner, so it stays next to the button that triggered it.
+//
+// renderJobs() reuses every existing card untouched except the ones that
+// were just acted on (see justActedJobIds there) — so a message is never
+// tracked, looked up, or reapplied by job id on some later, unrelated
+// render. It's just an ordinary DOM node with its own timer that stays
+// exactly as it was until its own card is the one that gets rebuilt.
+// justActedJobIds/pendingCardMessages are a one-shot batch, not a
+// persistent store: whatever's in them gets consumed and wiped the instant
+// the next renderJobs() runs, whether that's several actions' worth (two
+// favorites fired close enough together to land in the same batch) or one.
+// Either way nothing "expires" or gets dropped for being 3rd/4th/Nth — a
+// plain Set/object has no notion of a cap.
+let pendingCardMessages = {}; // jobId (string) -> { text, tone }
+let justActedJobIds = new Set();
+
+function cardMessageDuration(tone) {
+  return tone === "error" ? 6000 : 4000;
+}
+
+function renderCardMessageEl(msgEl, text, tone) {
   msgEl.innerHTML = `<span>${escapeHtml(text)}</span><button class="dismiss-error-btn" aria-label="Dismiss">&times;</button>`;
   msgEl.classList.toggle("tone-success", tone === "success");
   msgEl.hidden = false;
@@ -151,20 +168,30 @@ function showCardMessage(cardEl, text, tone = "success") {
   clearTimeout(msgEl._dismissTimer);
   msgEl._dismissTimer = setTimeout(() => {
     msgEl.hidden = true;
-  }, tone === "error" ? 6000 : 4000);
+  }, cardMessageDuration(tone));
 }
 
-// Some card actions (Generate Resume, pipeline status, Favorite) call
-// loadJobs() right after succeeding, which tears down and rebuilds every
-// card from scratch — so the message has to be queued here and re-applied
-// once the matching card exists again in the fresh DOM (see the
-// pendingCardMessage check at the end of renderJobs). If that job's card
-// isn't part of the freshly rendered page (moved tabs, moved off-page), the
-// message is simply dropped rather than falling back to a page banner —
-// that's the point: it only ever shows attached to its own card.
-let pendingCardMessage = null;
+// Immediate display — for when the card is guaranteed to still be on screen
+// right now (no loadJobs() about to tear it down), e.g. a validation error.
+function showCardMessage(cardEl, text, tone = "success") {
+  const msgEl = cardEl?.querySelector(".card-message");
+  if (!msgEl) return;
+  renderCardMessageEl(msgEl, text, tone);
+}
+
+// Some card actions (Generate Resume, pipeline status) call loadJobs()
+// right after succeeding, which rebuilds that one card from scratch (see
+// justActedJobIds in renderJobs) — so the message is only registered here
+// and actually rendered once the matching card exists again in the fresh
+// DOM. If that job's card isn't part of the freshly rendered page (moved
+// tabs, moved off-page), it's dropped there rather than falling back to a
+// page banner — it only ever shows attached to its own card. Favorite
+// doesn't use this — see its handler, which updates in place instead of
+// reloading, so it never needs to survive a rebuild at all.
 function queueCardMessage(jobId, text, tone = "success") {
-  pendingCardMessage = { jobId: String(jobId), text, tone };
+  const key = String(jobId);
+  pendingCardMessages[key] = { text, tone };
+  justActedJobIds.add(key);
 }
 
 // Demo mode: everything works exactly like normal mode (real API calls,
@@ -201,6 +228,27 @@ let userProfile = { firstName: "", lastName: "", email: "" };
 function isProfileComplete() {
   return Boolean(userProfile.firstName.trim() && userProfile.lastName.trim() && userProfile.email.trim());
 }
+// The AI opt-out toggle (Job Settings' User tab / onboarding welcome
+// screen) — read by jobCard() to decide whether Generate Resume exists at
+// all and whether Apply is gated on a ready resume or always open. Defaults
+// to true (AI on) so a page load that hasn't heard back from the server yet
+// renders the same as today's behavior.
+let aiGenerationEnabled = true;
+// Set right before a renderJobs() call whose change isn't about any
+// specific job (e.g. the AI opt-out toggle) — the normal reconciliation in
+// renderJobs() reuses every existing card untouched except ones in
+// justActedJobIds, which is exactly wrong for a global setting change that
+// needs every card's markup (Generate Resume button, Apply label) rebuilt
+// at once. Consumed and reset to false by renderJobs() itself.
+let forceFullRerender = false;
+// The value onboarding's AI opt-out checkbox actually loaded with (see
+// openOnboarding) — compared against on every toggle so the confirm below
+// only fires on a genuine change, and so canceling has something to revert
+// to. Unlike the Job Settings drawer's version of this checkbox, this one
+// doesn't apply immediately: it's saved (and the reset actually happens)
+// along with everything else on Finish setup, same as Companies/Job
+// Title/Profile.
+let onboardingAiGenerationInitial = true;
 // A persistent, top-level heads-up (visible on every tab, since it sits
 // above the tab-specific content) — unlike showBanner's messages, this
 // doesn't auto-hide and doesn't get cleared on tab switches. Only
@@ -231,6 +279,7 @@ async function refreshUserProfile() {
   try {
     const settings = await (await fetch("/api/user-settings")).json();
     userProfile = settings.profile ?? { firstName: "", lastName: "", email: "" };
+    aiGenerationEnabled = settings.aiGenerationEnabled ?? true;
   } catch {
     // Best-effort — the server-side gate on apply/mark-applied is the real
     // enforcement, this cache just saves a round trip in the common case.
@@ -319,8 +368,10 @@ function jobCard(job) {
   // single job it's clicked on.
   const flagCompanyControl = `<button class="flag-company-btn" title="Flag company — block ${escapeHtml(job.company)} as a scam company" aria-label="Flag company">${icons.thumbsDown}</button>`;
 
+  // AI off means there's no resume-generation step at all — the button
+  // never renders, regardless of status (see the AI opt-out toggle).
   const generateControl =
-    hasDocs || isApplied
+    !aiGenerationEnabled || hasDocs || isApplied
       ? ""
       : job.status === "requested"
         ? `<button class="request-btn btn-dark" disabled>Resume In Claude</button>`
@@ -365,8 +416,9 @@ function jobCard(job) {
   // tailored docs exist (hasDocs) or "Generate Resume" has at least been
   // clicked (status "requested") — waiting on hasDocs alone would mean this
   // never unlocks until someone's manually generated the real documents,
-  // which can take a while, so a request in flight is enough.
-  const applyReady = hasDocs || job.status === "requested";
+  // which can take a while, so a request in flight is enough. With AI off
+  // there's no resume step to wait on at all, so Apply is always ready.
+  const applyReady = !aiGenerationEnabled || hasDocs || job.status === "requested";
 
   // Once a job is applied, "Apply with AI prefill" is the only way it gets
   // here in the first place (see wireJobCardEvents) — showing it again on
@@ -379,7 +431,7 @@ function jobCard(job) {
     ? `<select class="pipeline-select" data-current="${pipelineStage}">${PIPELINE_STAGES.map(
         (s) => `<option value="${s}" ${s === pipelineStage ? "selected" : ""}>${s[0].toUpperCase()}${s.slice(1)}</option>`,
       ).join("")}</select>`
-    : `<button class="apply-btn btn-dark" data-ready="${applyReady}">Apply with AI prefill</button>`;
+    : `<button class="apply-btn btn-dark" data-ready="${applyReady}">${aiGenerationEnabled ? "Apply with AI prefill" : "Apply"}</button>`;
 
   // Pill order/contents differ by tab: New Jobs swaps source before date;
   // Applied Jobs drops the date pill entirely and shows source before the
@@ -540,14 +592,60 @@ function renderJobs() {
   prevPageBtn.disabled = currentPage <= 1;
   nextPageBtn.disabled = currentPage >= totalPages;
 
-  jobsEl.innerHTML = pageJobs.map(jobCard).join("");
-  wireJobCardEvents();
+  // Reconcile instead of a full teardown+rebuild: every existing card is
+  // reused completely untouched (position aside) — including whatever
+  // message it's currently showing — except the one job that was just
+  // acted on, which gets freshly regenerated markup. This is the whole
+  // fix: a card's message is never tracked, looked up, or reapplied by job
+  // id anywhere: it simply isn't destroyed by an unrelated action's
+  // render, so there's nothing to "tie to the card" and no cap on how many
+  // can be showing at once — each one is just an ordinary, untouched DOM
+  // node with its own timer until its own card is the one that changes.
+  const existingById = new Map();
+  jobsEl.querySelectorAll(".card").forEach((card) => existingById.set(card.dataset.id, card));
 
-  if (pendingCardMessage) {
-    const targetCard = jobsEl.querySelector(`.card[data-id="${pendingCardMessage.jobId}"]`);
-    if (targetCard) showCardMessage(targetCard, pendingCardMessage.text, pendingCardMessage.tone);
-    pendingCardMessage = null;
-  }
+  const frag = document.createDocumentFragment();
+  const freshCards = []; // only these get event listeners — reused cards already have theirs
+  pageJobs.forEach((job) => {
+    const key = String(job.id);
+    const existing = existingById.get(key);
+    existingById.delete(key);
+    if (existing && !justActedJobIds.has(key) && !forceFullRerender) {
+      frag.appendChild(existing);
+    } else {
+      const wrapper = document.createElement("div");
+      wrapper.innerHTML = jobCard(job);
+      const newCard = wrapper.firstElementChild;
+      frag.appendChild(newCard);
+      freshCards.push(newCard);
+    }
+  });
+  jobsEl.innerHTML = "";
+  jobsEl.appendChild(frag);
+  // Only the freshly (re)created cards need wiring — reused ones already
+  // have their listeners from whenever they were originally created; rewiring
+  // them here would stack a second, third, ... set of listeners on top with
+  // every render they survive, firing each click multiple times over.
+  wireJobCardEvents(freshCards);
+
+  justActedJobIds.forEach((jobId) => {
+    const targetCard = jobsEl.querySelector(`.card[data-id="${jobId}"]`);
+    if (!targetCard) return;
+    const msg = pendingCardMessages[jobId];
+    if (msg) renderCardMessageEl(targetCard.querySelector(".card-message"), msg.text, msg.tone);
+    // Favoriting (and some other actions) re-sorts the job, sometimes to
+    // the very top of the page — occasionally that lands the card outside
+    // the viewport entirely.
+    if (!isElementVisible(targetCard)) targetCard.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  });
+  pendingCardMessages = {};
+  justActedJobIds = new Set();
+  forceFullRerender = false;
+}
+
+function isElementVisible(el) {
+  const rect = el.getBoundingClientRect();
+  return rect.top >= 0 && rect.bottom <= window.innerHeight;
 }
 
 async function loadJobs() {
@@ -556,9 +654,9 @@ async function loadJobs() {
   renderJobs();
 }
 
-function wireJobCardEvents() {
+function wireJobCardEvents(cards = jobsEl.querySelectorAll(".card")) {
 
-  jobsEl.querySelectorAll(".card").forEach((card) => {
+  cards.forEach((card) => {
     const id = card.dataset.id;
     const company = card.dataset.company;
     const url = card.dataset.url;
@@ -615,7 +713,13 @@ function wireJobCardEvents() {
       btn.disabled = true;
       if (useSpinner) btn.innerHTML = `<span class="spinner"></span> ${originalHTML}`;
 
-      window.open(url, "_blank", "noopener");
+      // window.open returns null (or an inaccessible window) when the
+      // browser's popup blocker steps in — the only new-tab mechanism on
+      // this page where that's actually detectable (a plain <a target=
+      // "_blank"> click, like "View posting" below, is a direct user
+      // gesture browsers don't block, so it's always a safe fallback here).
+      const openedTab = window.open(url, "_blank", "noopener");
+      const popupBlocked = !openedTab;
 
       // "Verify Company" (if present and checked) only actually saves right
       // here, at the moment of applying — see the checkbox's own comment
@@ -643,10 +747,12 @@ function wireJobCardEvents() {
         // job visibly leaves the current view), but the confirmation shows
         // everywhere now instead of only for demo mode.
         showBanner(
-          currentTab === "current"
-            ? "Opened in a new tab and moved to your Applied Jobs — you're on a roll!"
-            : "Marked as applied — you're one step closer!",
-          "success",
+          popupBlocked
+            ? "Marked as applied, but your browser blocked the new tab — allow pop-ups for this site, then use \"View posting\" on the card to open it."
+            : currentTab === "current"
+              ? "Opened in a new tab and moved to your Applied Jobs — you're on a roll!"
+              : "Marked as applied — you're one step closer!",
+          popupBlocked ? "error" : "success",
         );
         await loadJobs();
         if (currentTab === "current") window.scrollTo(0, 0);
@@ -691,17 +797,29 @@ function wireJobCardEvents() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ favorited }),
         });
-        queueCardMessage(id, favorited ? "Added to your favorites!" : "Removed from favorites.", "success");
-        // Favoriting re-sorts the job to the very top of the (unpaginated)
-        // list — if that moves it onto a different page than the one
-        // currently shown, staying on the old page number made it look like
-        // favoriting had silently done nothing (only fixed by reloading or
-        // switching tabs, both of which happen to reset this too). Jump back
-        // to page 1 so "float to top" is actually visible right away.
-        currentPage = 1;
-        await loadJobs();
+        // Updates this one card and the shared allJobs data in place —
+        // deliberately NOT calling loadJobs()/renderJobs() here. Favorited
+        // jobs still float to the top, just the next time the list is
+        // naturally rebuilt (switching tabs, reloading, another action's
+        // own loadJobs()) rather than immediately reshuffling whatever's
+        // currently on screen out from under you. Since nothing rebuilds,
+        // there's no card-message reconciliation needed either — the
+        // message goes straight onto the card that's already right here.
+        const job = allJobs.find((j) => j.id === Number(id));
+        if (job) job.favorited = favorited;
+        btn.dataset.favorited = String(favorited);
+        btn.title = favorited ? "Unfavorite" : "Favorite";
+        btn.innerHTML = favorited ? icons.starFilled : icons.starOutline;
+        if (favorited) {
+          showCardMessage(card, "Added to your favorites!", "success");
+        } else {
+          // Unfavoriting just clears whatever message was already showing
+          // on this card rather than announcing its own removal.
+          card.querySelector(".card-message").hidden = true;
+        }
       } catch (err) {
         showCardMessage(card, `Couldn't ${favorited ? "favorite" : "unfavorite"} this job: ${err.message}`, "error");
+      } finally {
         btn.disabled = false;
       }
     });
@@ -942,6 +1060,8 @@ async function openJobSettingsDrawer() {
     userFirstNameInput.value = settings.profile?.firstName ?? "";
     userLastNameInput.value = settings.profile?.lastName ?? "";
     userEmailInput.value = settings.profile?.email ?? "";
+    aiGenerationEnabled = settings.aiGenerationEnabled ?? true;
+    userAiOptoutCheck.checked = !aiGenerationEnabled;
   } catch (err) {
     showBanner(`Couldn't load your settings: ${err.message}`, "error");
     return;
@@ -969,6 +1089,63 @@ drawerTabButtons.forEach((btn) => {
     document.getElementById("drawer-pane-title").hidden = btn.dataset.drawerTab !== "title";
     document.getElementById("drawer-pane-user").hidden = btn.dataset.drawerTab !== "user";
   });
+});
+
+// Unlike every other Job Settings field, this applies immediately on
+// toggle instead of waiting for the drawer's Save button — it's a
+// destructive, whole-database change (every job's generated documents,
+// applied status, and pipeline stage get wiped — see resetAllJobsForAiToggle
+// server-side), so it gets its own explicit confirm() right at the moment
+// of the click, same pattern as the "Clear all existing job history"
+// checkbox below. A cancel reverts the checkbox without calling the server.
+userAiOptoutCheck.addEventListener("change", async (e) => {
+  const checkbox = e.currentTarget;
+  const wantsEnabled = !checkbox.checked;
+  if (wantsEnabled === aiGenerationEnabled) return; // no actual change (e.g. drawer just opened)
+
+  const confirmed = confirm(
+    wantsEnabled
+      ? "Turning AI-generated resumes back on resets EVERY job — including ones you've already applied to — back to a clean state. Any in-progress or completed application work will be lost. Continue?"
+      : "Opting out of AI-generated resumes resets EVERY job — including ones you've already applied to — back to a clean state. Any in-progress or completed application work will be lost. Continue?",
+  );
+  if (!confirmed) {
+    checkbox.checked = !aiGenerationEnabled;
+    return;
+  }
+
+  checkbox.disabled = true;
+  try {
+    const res = await fetch("/api/user-settings/ai-generation", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled: wantsEnabled }),
+    });
+    if (!res.ok) throw new Error((await res.json()).error ?? "Couldn't save this setting.");
+    aiGenerationEnabled = wantsEnabled;
+    // Every job just got wiped server-side — any leftover client-side
+    // per-card state (a pending "Trust this company" checkbox, an
+    // in-flight card message) refers to a state that no longer exists, so
+    // it's cleared here too rather than surviving into the next render.
+    pendingVerifiedJobIds.clear();
+    pendingCardMessages = {};
+    justActedJobIds = new Set();
+    // Every card's markup depends on aiGenerationEnabled now, not just the
+    // job it represents — force renderJobs() to rebuild all of them instead
+    // of reusing the (now-stale) existing DOM nodes.
+    forceFullRerender = true;
+    await loadJobs();
+    showBanner(
+      wantsEnabled
+        ? "AI-generated resumes are back on — every job was reset to a clean state."
+        : "AI-generated resumes are off — every job was reset to a clean state. Apply now opens the posting directly.",
+      "success",
+    );
+  } catch (err) {
+    checkbox.checked = !aiGenerationEnabled;
+    showBanner(`Couldn't update this setting: ${err.message}`, "error");
+  } finally {
+    checkbox.disabled = false;
+  }
 });
 
 // The search box doubles as the add box: typing filters the existing chips
@@ -1369,6 +1546,8 @@ async function openOnboarding() {
     onboardingFirstNameInput.value = settings.profile?.firstName ?? "";
     onboardingLastNameInput.value = settings.profile?.lastName ?? "";
     onboardingEmailInput.value = settings.profile?.email ?? "";
+    onboardingAiGenerationInitial = settings.aiGenerationEnabled ?? true;
+    onboardingAiOptoutCheck.checked = !onboardingAiGenerationInitial;
     // A step is only ever required because it started with nothing in it —
     // decided here, once, from what was just loaded, not re-checked against
     // "current" data later (see the comment on the declaration above).
@@ -1397,6 +1576,23 @@ function closeOnboarding() {
   pageFooterEl.hidden = false;
   getStartedBtn.hidden = !demoMode;
 }
+
+// Same warning as the Job Settings drawer's version of this checkbox — even
+// though this one doesn't take effect until Finish setup, the reset it
+// triggers then is exactly as destructive, so the confirm needs to show
+// right here too, not just in Job Settings.
+onboardingAiOptoutCheck.addEventListener("change", (e) => {
+  const checkbox = e.currentTarget;
+  const wantsEnabled = !checkbox.checked;
+  if (wantsEnabled === onboardingAiGenerationInitial) return;
+
+  const confirmed = confirm(
+    wantsEnabled
+      ? "Turning AI-generated resumes back on resets EVERY job — including ones you've already applied to — back to a clean state. Any in-progress or completed application work will be lost. Continue?"
+      : "Opting out of AI-generated resumes resets EVERY job — including ones you've already applied to — back to a clean state. Any in-progress or completed application work will be lost. Continue?",
+  );
+  if (!confirmed) checkbox.checked = !onboardingAiGenerationInitial;
+});
 
 getStartedBtn.addEventListener("click", openOnboarding);
 
@@ -1514,22 +1710,30 @@ onboardingFinishBtn.addEventListener("click", async () => {
       }),
     });
     if (!res.ok) throw new Error((await res.json()).error ?? "Save failed.");
-    await refreshUserProfile();
-    // Fetched here, before anything is revealed, so New Jobs shows up
-    // already populated instead of flashing its old/empty state and then
-    // filling in — "show contents when ready" means the fetch has to finish
-    // before the onboarding panel goes away, not after.
+    // Idempotent server-side (only resets jobs if the value is actually
+    // changing — see the route) so it's safe to send unconditionally here,
+    // even if onboarding gets re-run without touching this checkbox.
+    res = await fetch("/api/user-settings/ai-generation", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled: !onboardingAiOptoutCheck.checked }),
+    });
+    if (!res.ok) throw new Error((await res.json()).error ?? "Save failed.");
     clearInterval(onboardingProgressTimer);
     clearInterval(onboardingMessageTimer);
     onboardingProgressFill.style.width = "100%";
     onboardingLoadingMessage.textContent = "All set!";
-    allJobs = await (await fetch("/api/jobs")).json();
     await sleep(400);
-    closeOnboarding();
-    landOnNewJobsTab();
-    renderJobs();
-    showBanner("You're all set! We've pulled in jobs that match your settings — happy hunting!", "success");
-    window.scrollTo(0, 0);
+    // A full reload instead of closing the panel + re-rendering in place —
+    // guarantees every card (and every other bit of cached state: profile,
+    // aiGenerationEnabled, etc.) comes from a genuinely fresh fetch instead
+    // of relying on this session's in-memory state and renderJobs()'s
+    // card-reuse reconciliation to have caught every change. Picked up by
+    // the sessionStorage check near the bottom of this file, which shows
+    // the "all set" banner once the reloaded page finishes loading.
+    sessionStorage.setItem("justFinishedOnboarding", "1");
+    window.location.reload();
+    return;
   } catch (err) {
     stopOnboardingProgress();
     onboardingError.textContent = `Couldn't finish setup: ${err.message}`;
@@ -1658,4 +1862,18 @@ pageSizeSelect.addEventListener("change", () => {
   renderJobs();
 });
 
-loadJobs();
+// Waits for aiGenerationEnabled (and userProfile) to actually load before the
+// very first renderJobs() — otherwise this races the /api/user-settings
+// fetch above, and a first paint that loses the race renders every card
+// against the wrong (default) aiGenerationEnabled value, with nothing to
+// trigger a re-render once the real value comes in.
+refreshUserProfile().then(loadJobs);
+
+// The other half of onboardingFinishBtn's success path — it reloads the
+// page instead of closing the panel in place, so the "all set" confirmation
+// has to survive that reload rather than just being shown directly.
+if (sessionStorage.getItem("justFinishedOnboarding")) {
+  sessionStorage.removeItem("justFinishedOnboarding");
+  showBanner("You're all set! We've pulled in jobs that match your settings — happy hunting!", "success");
+  window.scrollTo(0, 0);
+}
