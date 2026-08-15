@@ -701,7 +701,10 @@ export function setAiGenerationEnabled(enabled: boolean): void {
  * or "ready to apply" state no longer matches the new mode, so it's cleared
  * rather than left in a state the UI can't represent. Leaves favorited,
  * priority, and manually_imported alone — those are curation flags, not
- * application progress.
+ * application progress. Also leaves excluded jobs (see excludeJob/
+ * blockCompany) untouched — resetting status to 'found' would silently
+ * un-exclude a bad-fit posting or scam company's job, which has nothing to
+ * do with AI generation.
  */
 export function resetAllJobsForAiToggle(): void {
   db.exec(
@@ -712,6 +715,7 @@ export function resetAllJobsForAiToggle(): void {
        applied_date = NULL,
        requested_at = NULL,
        apply_order = NULL,
-       pipeline_stage = NULL`,
+       pipeline_stage = NULL
+     WHERE status != 'excluded'`,
   );
 }

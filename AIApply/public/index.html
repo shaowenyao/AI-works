@@ -54,6 +54,7 @@
       }
       .header-actions {
         display: flex;
+        align-items: center;
         gap: 0.5rem;
       }
       .app-logo {
@@ -149,6 +150,23 @@
       }
       #job-settings-btn {
         padding: 0.5rem;
+      }
+      #more-filters-btn {
+        padding: 0.45rem 0.7rem;
+        position: relative;
+      }
+      #more-filters-btn .active-filter-dot {
+        position: absolute;
+        top: 0.25rem;
+        right: 0.25rem;
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--ios-blue);
+        display: none;
+      }
+      #more-filters-btn.has-active-filters .active-filter-dot {
+        display: block;
       }
       .card {
         background: var(--ios-card-bg);
@@ -490,6 +508,8 @@
       #radius-filter,
       #user-scan-radius-select,
       #onboarding-scan-radius-select,
+      #experience-filter-select,
+      #employment-type-filter-select,
       .pipeline-select {
         cursor: pointer;
         border: none;
@@ -576,10 +596,26 @@
       }
       .tabs {
         display: flex;
+        align-items: center;
         gap: 1.5rem;
         border-bottom: 1px solid var(--ios-separator);
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
         margin-top: 1.25rem;
+      }
+      .stats-ticker {
+        margin-left: auto;
+        margin-bottom: 0.6rem;
+        font-size: 0.85rem;
+        color: var(--ios-secondary-label);
+        white-space: nowrap;
+        opacity: 1;
+        transition: opacity 0.25s ease;
+      }
+      .stats-ticker:empty {
+        display: none;
+      }
+      .stats-ticker.fade {
+        opacity: 0;
       }
       .tab-btn {
         border: none;
@@ -1107,13 +1143,13 @@
       <span class="header-actions">
         <button id="dummy-btn">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          <span id="dummy-btn-label">Add job</span>
+          <span id="dummy-btn-label">Add Job</span>
         </button>
         <button id="scan-btn" class="btn-dark">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          Scan for new jobs
+          Scan for New Jobs
         </button>
-        <button id="job-settings-btn" aria-label="Job settings" title="Job settings">
+        <button id="job-settings-btn" aria-label="Job Settings" title="Job Settings">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
         </button>
       </span>
@@ -1122,9 +1158,10 @@
       <button class="tab-btn active" data-tab="current">New Jobs</button>
       <button class="tab-btn" data-tab="applied">Applied Jobs</button>
       <button class="tab-btn" data-tab="archived">Past Jobs</button>
+      <span class="stats-ticker" id="stats-ticker"></span>
     </div>
     <div class="apply-notice tone-error" id="profile-gate-notice" hidden>
-      <span>Complete your profile (name + email) in Job Settings before applying to jobs.</span>
+      <span>Complete your profile (name + email) in Job Settings to apply.</span>
       <button class="dismiss-notice-btn" id="profile-gate-dismiss" aria-label="Dismiss">&times;</button>
     </div>
     <div class="filter-row">
@@ -1481,6 +1518,10 @@
           <option value="local">Local</option>
         </select>
         <input type="text" id="search-input" name="job-search" list="job-title-suggestions" autocomplete="on" placeholder="Job Title" />
+        <button id="more-filters-btn" aria-label="More Filters" title="More Filters">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
+          <span class="active-filter-dot"></span>
+        </button>
       </span>
       <span class="filter-note" id="filter-note"></span>
     </div>
@@ -1489,7 +1530,7 @@
       <button class="dismiss-notice-btn" id="apply-notice-dismiss" aria-label="Dismiss">&times;</button>
     </div>
     <p id="empty" hidden>
-      No jobs yet. Ask Claude to add the companies you want to track, then click "Scan for new jobs".
+      No jobs yet. Ask Claude to add the companies you want to track, then click "Scan for New Jobs".
     </p>
     <div id="jobs"></div>
     <div class="page-footer">
@@ -1504,14 +1545,14 @@
         </select>
         <button class="btn-dark" id="get-started-btn" hidden>Get Started</button>
       </div>
-      <label class="demo-mode-check" title="Lets 'Apply with AI fill' be used right after 'Optimize CV', without waiting for real documents to be generated — for UX testing/demos">
-        <input type="checkbox" id="demo-mode-toggle" /> Demo mode
+      <label class="demo-mode-check" title="Unlocks Apply right after Generate Resume, without waiting for real documents — for UX testing/demos">
+        <input type="checkbox" id="demo-mode-toggle" /> Demo Mode
       </label>
     </div>
     <div id="onboarding-panel" hidden>
       <div class="onboarding-welcome">
         <h2>Welcome to FitPilot.AI</h2>
-        <p>Let's get your search set up — add the companies and titles you're targeting, upload your resume, and set a location. You can always change these later from the settings gear.</p>
+        <p>Let's set up your search — add companies and titles, upload your resume, and set a location. Change any of this later from the settings gear.</p>
       </div>
       <div class="onboarding-loading" id="onboarding-loading" hidden>
         <div class="onboarding-progress-track">
@@ -1521,7 +1562,7 @@
       </div>
       <div class="onboarding-form-section" id="onboarding-form-section">
       <div class="onboarding-step">
-        <h3>Add your info <span class="required-star">*</span></h3>
+        <h3>Add Your Info <span class="required-star">*</span></h3>
         <p class="modal-hint">Your name and email — required before applying to any job.</p>
         <div class="profile-fields-row">
           <input type="text" id="onboarding-first-name-input" placeholder="First name" name="given-name" autocomplete="given-name" />
@@ -1532,21 +1573,21 @@
       <div class="onboarding-columns">
         <div class="onboarding-column">
           <div class="onboarding-step">
-            <h3>Add companies <span class="required-star" id="onboarding-companies-required" hidden>*</span></h3>
+            <h3>Add Companies <span class="required-star" id="onboarding-companies-required" hidden>*</span></h3>
             <h3 class="settings-section-title category-add-title">Categories</h3>
             <div class="source-info-box">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-              <span>Pick a general category (like Tech or Construction) to see which companies are commonly tracked in that space — the list shows up here as you type. This is reference only: none of them get added to your Included Companies list below, so if you'd rather not see a specific one, add it to Excluded Companies yourself.</span>
+              <span>Pick a category (like Tech or Construction) to see commonly tracked companies as you type. Reference only — nothing here gets added to Included Companies below; add ones you don't want to Excluded Companies yourself.</span>
             </div>
             <div class="category-add-row">
               <input type="text" class="term-search-input" data-category-input list="company-categories" name="company-category" autocomplete="off" placeholder="Add a category (e.g. Tech, Construction)" />
-              <button class="term-add-btn add-color" data-category-add aria-label="Add category">+</button>
+              <button class="term-add-btn add-color" data-category-add aria-label="Add Category">+</button>
             </div>
             <p class="category-preview" data-category-preview hidden></p>
             <div class="category-list" data-list-el="categories"></div>
             <div class="source-info-box">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-              <span>We pull postings straight from each company's own career page (Greenhouse, Lever, Ashby, SmartRecruiters, BambooHR). Add companies here to flag them as priority — they'll float to the top of your list.</span>
+              <span>We pull postings straight from each company's own career page (Greenhouse, Lever, Ashby, SmartRecruiters, BambooHR). Add companies here to flag them as priority and float them to the top.</span>
             </div>
             <div class="term-accordion add-color">
               <button class="term-collapse-toggle" data-collapse-toggle="priorityCompanies" aria-expanded="false">
@@ -1557,7 +1598,7 @@
               <div class="term-accordion-body" data-accordion-body="priorityCompanies" hidden>
                 <div class="term-section-toolbar">
                   <input type="text" class="term-search-input" data-term-search="priorityCompanies" name="search-priority-companies" list="company-suggestions" autocomplete="on" placeholder="Search companies to add" />
-                  <button class="term-add-btn add-color" data-list="priorityCompanies" aria-label="Add company">+</button>
+                  <button class="term-add-btn add-color" data-list="priorityCompanies" aria-label="Add Company">+</button>
                 </div>
                 <div class="term-list" data-list-el="priorityCompanies"></div>
               </div>
@@ -1575,17 +1616,17 @@
               <div class="term-accordion-body" data-accordion-body="bannedCompanies" hidden>
                 <div class="term-section-toolbar">
                   <input type="text" class="term-search-input" data-term-search="bannedCompanies" name="search-banned-companies" list="company-suggestions" autocomplete="on" placeholder="Search companies to ban" />
-                  <button class="term-add-btn ban-color" data-list="bannedCompanies" aria-label="Ban company">+</button>
+                  <button class="term-add-btn ban-color" data-list="bannedCompanies" aria-label="Ban Company">+</button>
                 </div>
                 <div class="term-list" data-list-el="bannedCompanies"></div>
               </div>
             </div>
           </div>
           <div class="onboarding-step">
-            <h3>AI-generated documents</h3>
+            <h3>AI-Generated Documents</h3>
             <div class="source-info-box">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-              <span>By default, we use AI to generate a tailored resume and cover letter for each job before you apply. If you'd rather handle your own resume, you can opt out below — Generate Resume goes away and Apply just opens the posting directly.</span>
+              <span>By default, AI generates a tailored resume and cover letter for each job before you apply. Opt out below to handle your own resume — Generate Resume disappears and Apply just opens the posting.</span>
             </div>
             <label class="ai-optout-check">
               <input type="checkbox" id="onboarding-ai-optout-check" />
@@ -1595,10 +1636,10 @@
         </div>
         <div class="onboarding-column">
           <div class="onboarding-step">
-            <h3>Add job title <span class="required-star" id="onboarding-title-required" hidden>*</span></h3>
+            <h3>Add Job Title <span class="required-star" id="onboarding-title-required" hidden>*</span></h3>
             <div class="source-info-box">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-              <span>Only postings matching these terms make it into your list. Add the titles you're looking for, and exclude terms like "Senior" or "Recruiter" to filter out roles that aren't a fit.</span>
+              <span>Only postings matching these terms make your list. Add titles you're looking for, and exclude terms like "Senior" or "Recruiter" to filter out bad fits.</span>
             </div>
             <div class="term-accordion add-color">
               <button class="term-collapse-toggle" data-collapse-toggle="includeTerms" aria-expanded="false">
@@ -1609,7 +1650,7 @@
               <div class="term-accordion-body" data-accordion-body="includeTerms" hidden>
                 <div class="term-section-toolbar">
                   <input type="text" class="term-search-input" data-term-search="includeTerms" name="search-include-terms" list="job-title-suggestions" autocomplete="on" placeholder="Search included terms" />
-                  <button class="term-add-btn add-color" data-list="includeTerms" aria-label="Add term">+</button>
+                  <button class="term-add-btn add-color" data-list="includeTerms" aria-label="Add Term">+</button>
                 </div>
                 <div class="term-list" data-list-el="includeTerms"></div>
               </div>
@@ -1623,14 +1664,14 @@
               <div class="term-accordion-body" data-accordion-body="excludeTerms" hidden>
                 <div class="term-section-toolbar">
                   <input type="text" class="term-search-input" data-term-search="excludeTerms" name="search-exclude-terms" list="job-title-suggestions" autocomplete="on" placeholder="Search excluded terms" />
-                  <button class="term-add-btn ban-color" data-list="excludeTerms" aria-label="Ban term">+</button>
+                  <button class="term-add-btn ban-color" data-list="excludeTerms" aria-label="Ban Term">+</button>
                 </div>
                 <div class="term-list" data-list-el="excludeTerms"></div>
               </div>
             </div>
           </div>
           <div class="onboarding-step">
-            <h3>Add resume <span class="required-star" id="onboarding-resume-required" hidden>*</span></h3>
+            <h3>Add Resume <span class="required-star" id="onboarding-resume-required" hidden>*</span></h3>
             <div class="resume-current-row" id="onboarding-resume-current-row" hidden>
               <a id="onboarding-resume-current-link" href="#" target="_blank"></a>
               <button id="onboarding-resume-remove-btn">Remove</button>
@@ -1642,8 +1683,8 @@
             <p class="modal-error" id="onboarding-resume-error" hidden></p>
           </div>
           <div class="onboarding-step">
-            <h3>Add locations <span class="required-star" id="onboarding-location-required" hidden>*</span></h3>
-            <p class="modal-hint">Only jobs matching this location (city or zip code, and radius, if set) will ever be scanned or shown — leave it blank for no restriction.</p>
+            <h3>Add Locations <span class="required-star" id="onboarding-location-required" hidden>*</span></h3>
+            <p class="modal-hint">Only jobs matching this location (city/zip and radius, if set) get scanned or shown — leave it blank for no restriction.</p>
             <div class="scan-location-row">
               <input type="text" id="onboarding-scan-city-input" list="city-suggestions" placeholder="Location (city or zip)" autocomplete="off" />
               <select id="onboarding-scan-radius-select" title="How far from the city above to include">
@@ -1656,7 +1697,7 @@
             <div class="term-list" id="onboarding-scan-location-current" hidden>
               <span class="term-chip add-color">
                 <span id="onboarding-scan-location-current-label"></span>
-                <button class="term-chip-remove" id="onboarding-scan-location-remove-btn" aria-label="Remove saved location">
+                <button class="term-chip-remove" id="onboarding-scan-location-remove-btn" aria-label="Remove Saved Location">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                 </button>
               </span>
@@ -1667,15 +1708,15 @@
       <div class="onboarding-footer">
         <p class="modal-error" id="onboarding-error" hidden></p>
         <div class="onboarding-footer-buttons">
-          <button id="onboarding-skip-btn">Skip for now</button>
-          <button class="btn-dark" id="onboarding-finish-btn">Finish setup</button>
+          <button id="onboarding-skip-btn">Skip for Now</button>
+          <button class="btn-dark" id="onboarding-finish-btn">Finish Setup</button>
         </div>
       </div>
       </div>
     </div>
     <div class="modal-overlay" id="add-job-modal" hidden>
       <div class="modal">
-        <h2>Add a job</h2>
+        <h2>Add a Job</h2>
         <p class="modal-hint">Paste a direct posting URL from Greenhouse, Lever, SmartRecruiters, Ashby, or BambooHR. LinkedIn isn't supported.</p>
         <input type="url" id="add-job-url-input" name="job-url" autocomplete="url" placeholder="Paste job posting URL" />
         <p class="modal-error" id="add-job-error" hidden></p>
@@ -1688,7 +1729,7 @@
     <div class="drawer-overlay" id="job-settings-overlay" hidden>
       <div class="drawer" id="job-settings-drawer">
         <div class="drawer-header">
-          <h2>Job settings</h2>
+          <h2>Job Settings</h2>
           <button class="drawer-close-btn" id="job-settings-close-btn" aria-label="Close">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
@@ -1703,17 +1744,17 @@
             <h3 class="settings-section-title category-add-title">Categories</h3>
             <div class="source-info-box">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-              <span>Pick a general category (like Tech or Construction) to see which companies are commonly tracked in that space — the list shows up here as you type. This is reference only: none of them get added to your Included Companies list below, so if you'd rather not see a specific one, add it to Excluded Companies yourself.</span>
+              <span>Pick a category (like Tech or Construction) to see commonly tracked companies as you type. Reference only — nothing here gets added to Included Companies below; add ones you don't want to Excluded Companies yourself.</span>
             </div>
             <div class="category-add-row">
               <input type="text" class="term-search-input" data-category-input list="company-categories" name="company-category" autocomplete="off" placeholder="Add a category (e.g. Tech, Construction)" />
-              <button class="term-add-btn add-color" data-category-add aria-label="Add category">+</button>
+              <button class="term-add-btn add-color" data-category-add aria-label="Add Category">+</button>
             </div>
             <p class="category-preview" data-category-preview hidden></p>
             <div class="category-list" data-list-el="categories"></div>
             <div class="source-info-box">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-              <span>We pull postings straight from each company's own career page (Greenhouse, Lever, Ashby, SmartRecruiters, BambooHR). Add companies here to flag them as priority — they'll float to the top of your list.</span>
+              <span>We pull postings straight from each company's own career page (Greenhouse, Lever, Ashby, SmartRecruiters, BambooHR). Add companies here to flag them as priority and float them to the top.</span>
             </div>
             <div class="term-accordion add-color">
               <button class="term-collapse-toggle" data-collapse-toggle="priorityCompanies" aria-expanded="false">
@@ -1724,7 +1765,7 @@
               <div class="term-accordion-body" data-accordion-body="priorityCompanies" hidden>
                 <div class="term-section-toolbar">
                   <input type="text" class="term-search-input" data-term-search="priorityCompanies" name="search-priority-companies" list="company-suggestions" autocomplete="on" placeholder="Search companies to add" />
-                  <button class="term-add-btn add-color" data-list="priorityCompanies" aria-label="Add company">+</button>
+                  <button class="term-add-btn add-color" data-list="priorityCompanies" aria-label="Add Company">+</button>
                 </div>
                 <div class="term-list" data-list-el="priorityCompanies"></div>
               </div>
@@ -1742,7 +1783,7 @@
               <div class="term-accordion-body" data-accordion-body="bannedCompanies" hidden>
                 <div class="term-section-toolbar">
                   <input type="text" class="term-search-input" data-term-search="bannedCompanies" name="search-banned-companies" list="company-suggestions" autocomplete="on" placeholder="Search companies to ban" />
-                  <button class="term-add-btn ban-color" data-list="bannedCompanies" aria-label="Ban company">+</button>
+                  <button class="term-add-btn ban-color" data-list="bannedCompanies" aria-label="Ban Company">+</button>
                 </div>
                 <div class="term-list" data-list-el="bannedCompanies"></div>
               </div>
@@ -1751,7 +1792,7 @@
           <div class="drawer-pane" id="drawer-pane-title" hidden>
             <div class="source-info-box">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-              <span>Only postings matching these terms make it into your list. Add the titles you're looking for, and exclude terms like "Senior" or "Recruiter" to filter out roles that aren't a fit.</span>
+              <span>Only postings matching these terms make your list. Add titles you're looking for, and exclude terms like "Senior" or "Recruiter" to filter out bad fits.</span>
             </div>
             <div class="term-accordion add-color">
               <button class="term-collapse-toggle" data-collapse-toggle="includeTerms" aria-expanded="false">
@@ -1762,7 +1803,7 @@
               <div class="term-accordion-body" data-accordion-body="includeTerms" hidden>
                 <div class="term-section-toolbar">
                   <input type="text" class="term-search-input" data-term-search="includeTerms" name="search-include-terms" list="job-title-suggestions" autocomplete="on" placeholder="Search included terms" />
-                  <button class="term-add-btn add-color" data-list="includeTerms" aria-label="Add term">+</button>
+                  <button class="term-add-btn add-color" data-list="includeTerms" aria-label="Add Term">+</button>
                 </div>
                 <div class="term-list" data-list-el="includeTerms"></div>
               </div>
@@ -1776,7 +1817,7 @@
               <div class="term-accordion-body" data-accordion-body="excludeTerms" hidden>
                 <div class="term-section-toolbar">
                   <input type="text" class="term-search-input" data-term-search="excludeTerms" name="search-exclude-terms" list="job-title-suggestions" autocomplete="on" placeholder="Search excluded terms" />
-                  <button class="term-add-btn ban-color" data-list="excludeTerms" aria-label="Ban term">+</button>
+                  <button class="term-add-btn ban-color" data-list="excludeTerms" aria-label="Ban Term">+</button>
                 </div>
                 <div class="term-list" data-list-el="excludeTerms"></div>
               </div>
@@ -1793,8 +1834,8 @@
               <input type="email" id="user-email-input" placeholder="Email" name="email" autocomplete="email" />
             </div>
             <div class="term-section">
-              <h3 class="settings-section-title">Scan location</h3>
-              <p class="modal-hint">Only jobs matching this location (city or zip code, and radius, if set) will ever be scanned or shown — leave it blank for no restriction.</p>
+              <h3 class="settings-section-title">Scan Location</h3>
+              <p class="modal-hint">Only jobs matching this location (city/zip and radius, if set) get scanned or shown — leave it blank for no restriction.</p>
               <div class="scan-location-row">
                 <input type="text" id="user-scan-city-input" list="city-suggestions" placeholder="Location (city or zip)" autocomplete="off" />
                 <select id="user-scan-radius-select" title="How far from the city above to include">
@@ -1807,7 +1848,7 @@
               <div class="term-list" id="user-scan-location-current" hidden>
                 <span class="term-chip add-color">
                   <span id="user-scan-location-current-label"></span>
-                  <button class="term-chip-remove" id="user-scan-location-remove-btn" aria-label="Remove saved location">
+                  <button class="term-chip-remove" id="user-scan-location-remove-btn" aria-label="Remove Saved Location">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                   </button>
                 </span>
@@ -1826,10 +1867,10 @@
               <p class="modal-error" id="resume-error" hidden></p>
             </div>
             <div class="term-section">
-              <h3 class="settings-section-title">AI-generated documents</h3>
+              <h3 class="settings-section-title">AI-Generated Documents</h3>
               <div class="source-info-box">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-                <span>By default, we use AI to generate a tailored resume and cover letter for each job before you apply. If you'd rather handle your own resume, you can opt out below — Generate Resume goes away and Apply just opens the posting directly. Changing this resets every job (including ones you've already applied to) back to a clean state — any in-progress or completed application work is lost.</span>
+                <span>By default, AI generates a tailored resume and cover letter for each job before you apply. Opt out below to handle your own resume — Generate Resume disappears and Apply just opens the posting. Changing this resets every job, including ones already applied to — any application work is lost.</span>
               </div>
               <label class="ai-optout-check">
                 <input type="checkbox" id="user-ai-optout-check" />
@@ -1845,6 +1886,43 @@
             Clear all existing job history
           </label>
           <button class="btn-dark" id="job-settings-save-btn">Save</button>
+        </div>
+      </div>
+    </div>
+    <div class="drawer-overlay" id="more-filters-overlay" hidden>
+      <div class="drawer" id="more-filters-drawer">
+        <div class="drawer-header">
+          <h2>More Filters</h2>
+          <button class="drawer-close-btn" id="more-filters-close-btn" aria-label="Close">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <div class="drawer-body">
+          <div class="source-info-box">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            <span>Jobs don't always list this clearly. This is a guess — double-check for yourself.</span>
+          </div>
+          <div class="term-section">
+            <h3 class="settings-section-title">Years of Experience</h3>
+            <select id="experience-filter-select">
+              <option value="">Any</option>
+              <option value="1">Up to 1 year</option>
+              <option value="3">Up to 3 years</option>
+              <option value="5">Up to 5 years</option>
+              <option value="10">Up to 10 years</option>
+            </select>
+          </div>
+          <div class="term-section">
+            <h3 class="settings-section-title">Contractor or Full-Time</h3>
+            <select id="employment-type-filter-select">
+              <option value="">Any</option>
+              <option value="fulltime">Full-time</option>
+              <option value="contract">Contractor</option>
+            </select>
+          </div>
+        </div>
+        <div class="drawer-footer">
+          <button class="btn-dark" id="more-filters-save-btn" style="margin-left: auto;">Save</button>
         </div>
       </div>
     </div>

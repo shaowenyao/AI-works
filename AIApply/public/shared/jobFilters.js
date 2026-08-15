@@ -234,3 +234,69 @@ export function matchesCityFilter(location, city, radiusMiles) {
   }
   return lowerLocation.includes(city);
 }
+
+// Backs the New Jobs tab's "More filters" drawer (Years of experience /
+// Contractor or full time) — client-only, like the Location/Remote filters
+// in that same row. Postings have no structured field for either of these,
+// so both are keyword guesses against title+description text, not a real
+// classification: expect some misses (a posting that doesn't spell it out
+// plainly) and, less often, a wrong match (unusual phrasing). A posting
+// with no detectable signal at all always passes rather than being hidden
+// for lack of information — see matchesExperienceFilter/
+// matchesEmploymentTypeFilter below.
+
+const FULLTIME_KEYWORDS = ["full-time", "full time", "fulltime", "permanent position", "permanent role", "w2 employee", "direct hire"];
+const CONTRACT_KEYWORDS = [
+  "contractor",
+  "contract position",
+  "contract role",
+  "contract-to-hire",
+  "contract to hire",
+  "c2c",
+  "corp-to-corp",
+  "corp to corp",
+  "1099",
+  "independent contractor",
+  "temp-to-hire",
+  "temporary contract",
+];
+
+/** "fulltime" | "contract" | null (no clear signal, or both — ambiguous either way). */
+export function detectEmploymentType(job) {
+  const text = `${job.title ?? ""} ${job.description ?? ""}`.toLowerCase();
+  const isContract = CONTRACT_KEYWORDS.some((kw) => text.includes(kw));
+  const isFulltime = FULLTIME_KEYWORDS.some((kw) => text.includes(kw));
+  if (isContract && !isFulltime) return "contract";
+  if (isFulltime && !isContract) return "fulltime";
+  return null;
+}
+
+export function matchesEmploymentTypeFilter(job, type) {
+  if (!type) return true;
+  const detected = detectEmploymentType(job);
+  return detected === null || detected === type;
+}
+
+// Looks for "N(-M)? year(s) ... experience"-shaped phrases ("3+ years of
+// experience", "5-7 years relevant experience") and takes the lowest number
+// found — the point is "would I qualify with my years of experience", so a
+// range's low end is what matters. Requiring "experience" to actually
+// follow within a short stretch (not just any "N years" anywhere in the
+// text) rules out the common false-positive of "founded 10 years ago" or
+// similar, at the cost of missing phrasings that don't say the word at all.
+const YEARS_EXPERIENCE_RE = /(\d{1,2})\+?\s*(?:-|to)?\s*\d{0,2}\+?\s*years?\s*[a-z\s]{0,25}?experience/gi;
+
+/** Lowest "N years experience" figure found in title+description, or null if none. */
+export function detectMinYearsRequired(job) {
+  const text = `${job.title ?? ""} ${job.description ?? ""}`.toLowerCase();
+  const years = [...text.matchAll(YEARS_EXPERIENCE_RE)]
+    .map((m) => Number(m[1]))
+    .filter((n) => n > 0 && n <= 40);
+  return years.length > 0 ? Math.min(...years) : null;
+}
+
+export function matchesExperienceFilter(job, maxYears) {
+  if (!maxYears) return true;
+  const required = detectMinYearsRequired(job);
+  return required === null || required <= Number(maxYears);
+}

@@ -1,4 +1,4 @@
-import { isDesignTitle, matchesCityFilter } from "./shared/jobFilters.js";
+import { isDesignTitle, matchesCityFilter, matchesExperienceFilter, matchesEmploymentTypeFilter } from "./shared/jobFilters.js";
 import { COMPANY_CATEGORIES } from "./shared/companyCategories.js";
 
 // Mirrors PIPELINE_STAGES in src/db/client.ts — the server validates against
@@ -11,6 +11,7 @@ const emptyEl = document.getElementById("empty");
 const scanBtn = document.getElementById("scan-btn");
 const dummyBtn = document.getElementById("dummy-btn");
 const dummyBtnLabel = document.getElementById("dummy-btn-label");
+const statsTickerEl = document.getElementById("stats-ticker");
 const timeRangeFilter = document.getElementById("time-range-filter");
 const cityFilter = document.getElementById("city-filter");
 const radiusFilter = document.getElementById("radius-filter");
@@ -18,6 +19,12 @@ const locationFilter = document.getElementById("location-filter");
 const tabButtons = document.querySelectorAll(".tab-btn");
 const searchInput = document.getElementById("search-input");
 const filterNoteEl = document.getElementById("filter-note");
+const moreFiltersBtn = document.getElementById("more-filters-btn");
+const moreFiltersOverlay = document.getElementById("more-filters-overlay");
+const moreFiltersCloseBtn = document.getElementById("more-filters-close-btn");
+const moreFiltersSaveBtn = document.getElementById("more-filters-save-btn");
+const experienceFilterSelect = document.getElementById("experience-filter-select");
+const employmentTypeFilterSelect = document.getElementById("employment-type-filter-select");
 const demoModeToggle = document.getElementById("demo-mode-toggle");
 const prevPageBtn = document.getElementById("prev-page-btn");
 const nextPageBtn = document.getElementById("next-page-btn");
@@ -204,7 +211,7 @@ function queueCardMessage(jobId, text, tone = "success") {
 // instead of the real URL-import flow (see dummyBtn's click handler).
 let demoMode = localStorage.getItem("demoMode") === "true";
 demoModeToggle.checked = demoMode;
-dummyBtnLabel.textContent = demoMode ? "Add demo job" : "Add job";
+dummyBtnLabel.textContent = demoMode ? "Add Demo Job" : "Add Job";
 // The onboarding walkthrough (see openOnboarding below) is only offered in
 // Demo mode — it's for testing/demoing the first-run setup flow, not a real
 // account-onboarding feature yet.
@@ -212,8 +219,51 @@ getStartedBtn.hidden = !demoMode;
 demoModeToggle.addEventListener("change", () => {
   demoMode = demoModeToggle.checked;
   localStorage.setItem("demoMode", String(demoMode));
-  dummyBtnLabel.textContent = demoMode ? "Add demo job" : "Add job";
+  dummyBtnLabel.textContent = demoMode ? "Add Demo Job" : "Add Job";
   if (!onboardingActive) getStartedBtn.hidden = !demoMode;
+  renderJobs();
+});
+
+// The New Jobs filter row's "More filters" drawer (years of experience /
+// contractor-or-full-time) — client-only and persisted via localStorage,
+// same as demoMode above, rather than a server setting: these are just
+// keyword guesses against title/description text (see jobFilters.js), not
+// real structured data, so there's nothing for the server to enforce.
+// "" means "Any" (no filtering) for both.
+let experienceFilter = localStorage.getItem("experienceFilter") ?? "";
+let employmentTypeFilter = localStorage.getItem("employmentTypeFilter") ?? "";
+
+// Neither filter shows its current value anywhere on the collapsed filter
+// row (unlike Location/Job Title, which show their own typed value) — the
+// "..." button looks identical whether a filter is silently narrowing the
+// list or not. This dot is the only cue, so it has to stay in sync with
+// every place experienceFilter/employmentTypeFilter can change.
+function updateMoreFiltersIndicator() {
+  moreFiltersBtn.classList.toggle("has-active-filters", Boolean(experienceFilter || employmentTypeFilter));
+}
+updateMoreFiltersIndicator();
+
+function openMoreFiltersDrawer() {
+  experienceFilterSelect.value = experienceFilter;
+  employmentTypeFilterSelect.value = employmentTypeFilter;
+  moreFiltersOverlay.hidden = false;
+}
+function closeMoreFiltersDrawer() {
+  moreFiltersOverlay.hidden = true;
+}
+moreFiltersBtn.addEventListener("click", openMoreFiltersDrawer);
+moreFiltersCloseBtn.addEventListener("click", closeMoreFiltersDrawer);
+moreFiltersOverlay.addEventListener("click", (e) => {
+  if (e.target === moreFiltersOverlay) closeMoreFiltersDrawer();
+});
+moreFiltersSaveBtn.addEventListener("click", () => {
+  experienceFilter = experienceFilterSelect.value;
+  employmentTypeFilter = employmentTypeFilterSelect.value;
+  localStorage.setItem("experienceFilter", experienceFilter);
+  localStorage.setItem("employmentTypeFilter", employmentTypeFilter);
+  updateMoreFiltersIndicator();
+  closeMoreFiltersDrawer();
+  currentPage = 1;
   renderJobs();
 });
 
@@ -366,7 +416,7 @@ function jobCard(job) {
   // tracked gets excluded too, and future scans/imports skip the company
   // entirely. Distinct from Exclude/Delete, which only ever touches the
   // single job it's clicked on.
-  const flagCompanyControl = `<button class="flag-company-btn" title="Flag company — block ${escapeHtml(job.company)} as a scam company" aria-label="Flag company">${icons.thumbsDown}</button>`;
+  const flagCompanyControl = `<button class="flag-company-btn" title="Flag Company — block ${escapeHtml(job.company)} as a scam company" aria-label="Flag Company">${icons.thumbsDown}</button>`;
 
   // AI off means there's no resume-generation step at all — the button
   // never renders, regardless of status (see the AI opt-out toggle).
@@ -467,7 +517,7 @@ function jobCard(job) {
         ${flagCompanyControl}
         <span class="links">
           ${legitControl}
-          <a href="${escapeHtml(job.url)}" target="_blank" rel="noopener">View posting ${icons.external}</a>
+          <a class="view-posting-link" href="${escapeHtml(job.url)}" target="_blank" rel="noopener">View posting ${icons.external}</a>
           ${hasDocs ? `<a href="/files/${encodeURIComponent(job.resume_path.split("/").slice(-2).join("/"))}" target="_blank">Resume</a>` : ""}
           ${hasDocs ? `<a href="/files/${encodeURIComponent(job.cover_letter_path.split("/").slice(-2).join("/"))}" target="_blank">Cover letter</a>` : ""}
         </span>
@@ -528,7 +578,9 @@ function renderJobs() {
         !query ||
         job.title.toLowerCase().includes(query) ||
         job.company.toLowerCase().includes(query),
-    );
+    )
+    .filter((job) => job.manually_imported || matchesExperienceFilter(job, experienceFilter))
+    .filter((job) => job.manually_imported || matchesEmploymentTypeFilter(job, employmentTypeFilter));
 
   // Unlike Current/Archived (which just reflect date_found), "applied" is an
   // explicit action with its own timestamp (applied_date) — so show the
@@ -552,7 +604,7 @@ function renderJobs() {
   }
 
   const emptyMessages = {
-    current: `No jobs yet. Ask Claude to add the companies you want to track, then click "Scan for new jobs".`,
+    current: `No jobs yet. Ask Claude to add the companies you want to track, then click "Scan for New Jobs".`,
     applied: "Nothing here yet — jobs you mark as applied will show up in this tab.",
     archived: "Nothing archived yet — jobs land here automatically once they're no longer from today.",
   };
@@ -659,7 +711,6 @@ function wireJobCardEvents(cards = jobsEl.querySelectorAll(".card")) {
   cards.forEach((card) => {
     const id = card.dataset.id;
     const company = card.dataset.company;
-    const url = card.dataset.url;
 
     // 1-second minimum spinner on New Jobs specifically — purely a UX
     // touch (Promise.all with a timer means it shows for at least 1s even
@@ -713,13 +764,15 @@ function wireJobCardEvents(cards = jobsEl.querySelectorAll(".card")) {
       btn.disabled = true;
       if (useSpinner) btn.innerHTML = `<span class="spinner"></span> ${originalHTML}`;
 
-      // window.open returns null (or an inaccessible window) when the
-      // browser's popup blocker steps in — the only new-tab mechanism on
-      // this page where that's actually detectable (a plain <a target=
-      // "_blank"> click, like "View posting" below, is a direct user
-      // gesture browsers don't block, so it's always a safe fallback here).
-      const openedTab = window.open(url, "_blank", "noopener");
-      const popupBlocked = !openedTab;
+      // Clicking the card's own "View posting" <a target="_blank"> element
+      // instead of calling window.open(url, "_blank") directly — a real
+      // anchor click (even one triggered via .click(), as long as it's
+      // synchronous within this real click handler) is a direct user
+      // gesture browsers don't popup-block, unlike a bare window.open()
+      // call, which some browsers treat as a blockable popup. Reuses the
+      // link that's already in the DOM rather than constructing a new one,
+      // so there's no separate URL/target/rel to keep in sync.
+      card.querySelector(".view-posting-link")?.click();
 
       // "Verify Company" (if present and checked) only actually saves right
       // here, at the moment of applying — see the checkbox's own comment
@@ -747,12 +800,10 @@ function wireJobCardEvents(cards = jobsEl.querySelectorAll(".card")) {
         // job visibly leaves the current view), but the confirmation shows
         // everywhere now instead of only for demo mode.
         showBanner(
-          popupBlocked
-            ? "Marked as applied, but your browser blocked the new tab — allow pop-ups for this site, then use \"View posting\" on the card to open it."
-            : currentTab === "current"
-              ? "Opened in a new tab and moved to your Applied Jobs — you're on a roll!"
-              : "Marked as applied — you're one step closer!",
-          popupBlocked ? "error" : "success",
+          currentTab === "current"
+            ? "Opened in a new tab and moved to your Applied Jobs — you're on a roll!"
+            : "Marked as applied — you're one step closer!",
+          "success",
         );
         await loadJobs();
         if (currentTab === "current") window.scrollTo(0, 0);
@@ -777,7 +828,7 @@ function wireJobCardEvents(cards = jobsEl.querySelectorAll(".card")) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ stage }),
         });
-        queueCardMessage(id, `Updated — now tracking as "${stage}".`, "success");
+        queueCardMessage(id, `Updated — now tracked as "${stage}".`, "success");
         await loadJobs();
       } catch (err) {
         showCardMessage(card, `Couldn't update the status: ${err.message}`, "error");
@@ -853,7 +904,7 @@ function wireJobCardEvents(cards = jobsEl.querySelectorAll(".card")) {
         // Every job from this company (not just this card) is gone after
         // this, so — same reasoning as Exclude above — the page banner is
         // the only place left to report it.
-        showBanner(`Flagged ${company} and cleared out all their postings.`, "success");
+        showBanner(`Flagged ${company} — cleared out their postings so they won't show up again.`, "success");
         await loadJobs();
       } catch (err) {
         showCardMessage(card, `Couldn't flag ${company}: ${err.message}`, "error");
@@ -1080,6 +1131,7 @@ jobSettingsOverlay.addEventListener("click", (e) => {
 });
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && !jobSettingsOverlay.hidden) closeJobSettingsDrawer();
+  if (e.key === "Escape" && !moreFiltersOverlay.hidden) closeMoreFiltersDrawer();
 });
 
 drawerTabButtons.forEach((btn) => {
@@ -1105,8 +1157,8 @@ userAiOptoutCheck.addEventListener("change", async (e) => {
 
   const confirmed = confirm(
     wantsEnabled
-      ? "Turning AI-generated resumes back on resets EVERY job — including ones you've already applied to — back to a clean state. Any in-progress or completed application work will be lost. Continue?"
-      : "Opting out of AI-generated resumes resets EVERY job — including ones you've already applied to — back to a clean state. Any in-progress or completed application work will be lost. Continue?",
+      ? "Turning AI-generated resumes back on resets EVERY job, including ones already applied to. Any application work will be lost. Continue?"
+      : "Opting out of AI-generated resumes resets EVERY job, including ones already applied to. Any application work will be lost. Continue?",
   );
   if (!confirmed) {
     checkbox.checked = !aiGenerationEnabled;
@@ -1136,8 +1188,8 @@ userAiOptoutCheck.addEventListener("change", async (e) => {
     await loadJobs();
     showBanner(
       wantsEnabled
-        ? "AI-generated resumes are back on — every job was reset to a clean state."
-        : "AI-generated resumes are off — every job was reset to a clean state. Apply now opens the posting directly.",
+        ? "AI-generated resumes are back on! Every job's been reset to a clean state."
+        : "AI-generated resumes are off. Every job's been reset, and Apply now opens the posting directly.",
       "success",
     );
   } catch (err) {
@@ -1319,7 +1371,7 @@ jobSettingsSaveBtn.addEventListener("click", async () => {
   if (
     clearAll &&
     !confirm(
-      "This will permanently delete ALL jobs — including your Applied job history — before rescanning. This can't be undone. Continue?",
+      "This permanently deletes ALL jobs — including your Applied history — before rescanning. This can't be undone. Continue?",
     )
   ) {
     return;
@@ -1588,8 +1640,8 @@ onboardingAiOptoutCheck.addEventListener("change", (e) => {
 
   const confirmed = confirm(
     wantsEnabled
-      ? "Turning AI-generated resumes back on resets EVERY job — including ones you've already applied to — back to a clean state. Any in-progress or completed application work will be lost. Continue?"
-      : "Opting out of AI-generated resumes resets EVERY job — including ones you've already applied to — back to a clean state. Any in-progress or completed application work will be lost. Continue?",
+      ? "Turning AI-generated resumes back on resets EVERY job, including ones already applied to. Any application work will be lost. Continue?"
+      : "Opting out of AI-generated resumes resets EVERY job, including ones already applied to. Any application work will be lost. Continue?",
   );
   if (!confirmed) checkbox.checked = !onboardingAiGenerationInitial;
 });
@@ -1749,7 +1801,7 @@ addJobSubmitBtn.addEventListener("click", async () => {
   // reports inline via addJobError instead — otherwise the real message
   // would be invisible behind the modal.
   if (!isProfileComplete()) {
-    addJobError.textContent = "Add your name and email in Job Settings before applying to jobs.";
+    addJobError.textContent = "Add your name and email in Job Settings to apply.";
     addJobError.hidden = false;
     return;
   }
@@ -1805,7 +1857,7 @@ scanBtn.addEventListener("click", async () => {
     showBanner(`Couldn't complete the scan: ${err.message}`, "error");
   } finally {
     scanBtn.disabled = false;
-    scanBtn.textContent = "Scan for new jobs";
+    scanBtn.textContent = "Scan for New Jobs";
   }
 });
 
@@ -1862,12 +1914,72 @@ pageSizeSelect.addEventListener("change", () => {
   renderJobs();
 });
 
+// Lightweight gamification message next to the tabs — cycles between the
+// streak and today's count, computed straight from allJobs (no server
+// support needed, no persisted state of its own). Purely motivational
+// flavor, not something anything else reads.
+function computeGamificationStats() {
+  const appliedJobs = allJobs.filter((j) => j.applied_date);
+
+  // en-CA gives YYYY-MM-DD directly, in the browser's local timezone —
+  // exactly what's needed to bucket applied_date (a UTC ISO timestamp)
+  // into "which calendar day did this happen on, for this user".
+  const dayKey = (iso) => new Date(iso).toLocaleDateString("en-CA");
+  const today = dayKey(new Date().toISOString());
+  const daysApplied = new Set(appliedJobs.map((j) => dayKey(j.applied_date)));
+
+  // Consecutive days ending today or, if nothing's gone in yet today,
+  // ending yesterday — so the streak doesn't reset to zero at midnight
+  // before you've had a chance to apply to anything today.
+  let streak = 0;
+  const cursor = new Date();
+  if (!daysApplied.has(today)) cursor.setDate(cursor.getDate() - 1);
+  while (daysApplied.has(dayKey(cursor.toISOString()))) {
+    streak += 1;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+
+  // Streak always shows first, even for a brand-new account with zero
+  // applications — it's the starting prompt. The daily count only joins
+  // the rotation once there's at least one real application to count,
+  // so a first-time user doesn't see a bare "0 applied today".
+  const stats = [streak > 0 ? `🔥 ${streak}-day streak` : `🔥 Start your streak today`];
+  if (appliedJobs.length > 0) {
+    const appliedToday = appliedJobs.filter((j) => dayKey(j.applied_date) === today).length;
+    stats.push(`📬 ${appliedToday} job${appliedToday === 1 ? "" : "s"} applied today`);
+  }
+  return stats;
+}
+
+let statsTickerIndex = 0;
+let statsTickerTimer = null;
+
+function showNextStat() {
+  const stats = computeGamificationStats(); // always at least [streak]
+  statsTickerIndex = statsTickerIndex % stats.length;
+  const text = stats[statsTickerIndex];
+  statsTickerIndex += 1;
+  statsTickerEl.classList.add("fade");
+  setTimeout(() => {
+    statsTickerEl.textContent = text;
+    statsTickerEl.classList.remove("fade");
+  }, 250);
+}
+
+function startStatsTicker() {
+  showNextStat();
+  clearInterval(statsTickerTimer);
+  statsTickerTimer = setInterval(showNextStat, 4500);
+}
+
 // Waits for aiGenerationEnabled (and userProfile) to actually load before the
 // very first renderJobs() — otherwise this races the /api/user-settings
 // fetch above, and a first paint that loses the race renders every card
 // against the wrong (default) aiGenerationEnabled value, with nothing to
 // trigger a re-render once the real value comes in.
-refreshUserProfile().then(loadJobs);
+refreshUserProfile()
+  .then(loadJobs)
+  .then(startStatsTicker);
 
 // The other half of onboardingFinishBtn's success path — it reloads the
 // page instead of closing the panel in place, so the "all set" confirmation

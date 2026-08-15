@@ -135,7 +135,7 @@ jobsRouter.post("/:id/request-generation", (req, res) => {
 // Applying needs a name/email to actually go out (see isProfileComplete) —
 // the client already checks this before letting the button do anything, so
 // hitting this in practice means a stale client cache, not the normal path.
-const PROFILE_INCOMPLETE_ERROR = "Add your name and email in Job Settings before applying to jobs.";
+const PROFILE_INCOMPLETE_ERROR = "Add your name and email in Job Settings to apply.";
 
 // Wired up to the real Playwright autofill once it's built.
 jobsRouter.post("/:id/apply", async (req, res) => {
