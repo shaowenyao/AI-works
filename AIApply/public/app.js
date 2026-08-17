@@ -796,6 +796,10 @@ function wireJobCardEvents(cards = jobsEl.querySelectorAll(".card")) {
           const body = await markRes.json().catch(() => ({}));
           throw new Error(body.error ?? "Failed to mark as applied.");
         }
+        // Logged here, not derived from the job row later — see
+        // recordApplication's own comment for why this needs to survive a
+        // "Clear all existing job history".
+        recordApplication();
         // Wording differs slightly by tab (New Jobs is the only place the
         // job visibly leaves the current view), but the confirmation shows
         // everywhere now instead of only for demo mode.
@@ -1914,19 +1918,42 @@ pageSizeSelect.addEventListener("change", () => {
   renderJobs();
 });
 
+// The streak/daily-count message next to the tabs is deliberately NOT
+// derived from allJobs/the jobs table — "Clear all existing job history"
+// does a real DELETE FROM jobs, and losing the actual job listings
+// shouldn't also erase genuine streak progress you already made. Instead
+// it's its own append-only log in localStorage: every successful Apply
+// pushes today's timestamp onto it (see the apply-btn handler), independent
+// of whatever the jobs table currently contains. Seeded once, the first
+// time this ever runs, from allJobs' current applied_date values, so
+// switching to this mechanism didn't reset anyone's in-progress streak —
+// after that first seed it's fully self-maintained.
+function loadApplicationLog() {
+  const raw = localStorage.getItem("applicationLog");
+  if (raw) return JSON.parse(raw);
+  const seed = allJobs.filter((j) => j.applied_date).map((j) => j.applied_date);
+  localStorage.setItem("applicationLog", JSON.stringify(seed));
+  return seed;
+}
+
+function recordApplication() {
+  const log = loadApplicationLog();
+  log.push(new Date().toISOString());
+  localStorage.setItem("applicationLog", JSON.stringify(log));
+}
+
 // Lightweight gamification message next to the tabs — cycles between the
-// streak and today's count, computed straight from allJobs (no server
-// support needed, no persisted state of its own). Purely motivational
-// flavor, not something anything else reads.
+// streak and today's count. Purely motivational flavor, not something
+// anything else reads.
 function computeGamificationStats() {
-  const appliedJobs = allJobs.filter((j) => j.applied_date);
+  const applicationLog = loadApplicationLog();
 
   // en-CA gives YYYY-MM-DD directly, in the browser's local timezone —
-  // exactly what's needed to bucket applied_date (a UTC ISO timestamp)
-  // into "which calendar day did this happen on, for this user".
+  // exactly what's needed to bucket each logged timestamp into "which
+  // calendar day did this happen on, for this user".
   const dayKey = (iso) => new Date(iso).toLocaleDateString("en-CA");
   const today = dayKey(new Date().toISOString());
-  const daysApplied = new Set(appliedJobs.map((j) => dayKey(j.applied_date)));
+  const daysApplied = new Set(applicationLog.map(dayKey));
 
   // Consecutive days ending today or, if nothing's gone in yet today,
   // ending yesterday — so the streak doesn't reset to zero at midnight
@@ -1941,11 +1968,11 @@ function computeGamificationStats() {
 
   // Streak always shows first, even for a brand-new account with zero
   // applications — it's the starting prompt. The daily count only joins
-  // the rotation once there's at least one real application to count,
-  // so a first-time user doesn't see a bare "0 applied today".
+  // the rotation once there's at least one logged application, so a
+  // first-time user doesn't see a bare "0 applied today".
   const stats = [streak > 0 ? `🔥 ${streak}-day streak` : `🔥 Start your streak today`];
-  if (appliedJobs.length > 0) {
-    const appliedToday = appliedJobs.filter((j) => dayKey(j.applied_date) === today).length;
+  if (applicationLog.length > 0) {
+    const appliedToday = applicationLog.filter((iso) => dayKey(iso) === today).length;
     stats.push(`📬 ${appliedToday} job${appliedToday === 1 ? "" : "s"} applied today`);
   }
   return stats;
