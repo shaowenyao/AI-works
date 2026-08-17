@@ -1,0 +1,50 @@
+FitPilot.AI — Quickstart
+========================
+
+1. Install dependencies (first time only):
+     npm install
+
+2. Start the dev server:
+     npm run dev
+
+3. Open http://localhost:3000 in your browser.
+
+4. Stop it: Ctrl+C in that terminal.
+
+No .env file is required just to run the app — PORT defaults to 3000.
+(.env is only needed for the separate `npm run parse-resume` script —
+see README.md.)
+
+
+Two branches, two very different experiences
+----------------------------------------------
+
+main
+  The real thing. Scans real job boards (Greenhouse, Lever, Ashby,
+  SmartRecruiters, BambooHR) over the network, needs internet, and
+  your own data builds up in data/jobs.db over time.
+
+offline-demo
+  Fully offline — zero network calls anywhere. Every job, company,
+  and the uploaded resume are locally-generated placeholder data.
+  Pre-populated the moment you check it out: seed jobs across a
+  spread of industries (some already marked Applied, with a running
+  streak going), a demo resume already uploaded. Scan / Add Job
+  generate more fake postings instead of hitting real APIs. Its data
+  lives in a separate file (data/jobs.offline.db) and always resets
+  to the same checked-in baseline on every server restart.
+
+Switch between them:
+     git checkout main
+     git checkout offline-demo
+
+Then run `npm run dev` again — whichever branch is checked out is
+what the dev server actually runs (same port, same command either
+way).
+
+Only one branch's server can run at a time from this checkout — if
+you want both running side by side, use a separate `git worktree`
+rather than switching back and forth in this one.
+
+
+More detail on either branch: see README.md.
