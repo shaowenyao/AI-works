@@ -1,0 +1,939 @@
+<title>FitPilot Demo</title>
+<style>
+  :root {
+    --bg: #f2f2f7;
+    --card: #ffffff;
+    --label: #1c1c1e;
+    --secondary: #6e6e73;
+    --tertiary: #98989d;
+    --separator: #e5e5ea;
+    --fill: #ede9f0;
+    --fill-strong: #e0dce4;
+    --blue: #007aff;
+    --blue-tint: #eaf2ff;
+    --green: #34c759;
+    --red: #ff3b30;
+    --amber: #ff9f0a;
+    --shadow: rgba(28, 28, 30, 0.06);
+    --overlay: rgba(28, 28, 30, 0.32);
+  }
+  :root:not([data-theme="light"]) {
+    @media (prefers-color-scheme: dark) {
+      --bg: #000000;
+      --card: #1c1c1e;
+      --label: #f2f2f7;
+      --secondary: #a1a1a6;
+      --tertiary: #6e6e73;
+      --separator: #38383a;
+      --fill: #2c2c2e;
+      --fill-strong: #3a3a3c;
+      --blue: #0a84ff;
+      --blue-tint: #10233f;
+      --green: #30d158;
+      --red: #ff453a;
+      --amber: #ffa63a;
+      --shadow: rgba(0, 0, 0, 0.35);
+      --overlay: rgba(0, 0, 0, 0.55);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #000000;
+    --card: #1c1c1e;
+    --label: #f2f2f7;
+    --secondary: #a1a1a6;
+    --tertiary: #6e6e73;
+    --separator: #38383a;
+    --fill: #2c2c2e;
+    --fill-strong: #3a3a3c;
+    --blue: #0a84ff;
+    --blue-tint: #10233f;
+    --green: #30d158;
+    --red: #ff453a;
+    --amber: #ffa63a;
+    --shadow: rgba(0, 0, 0, 0.35);
+    --overlay: rgba(0, 0, 0, 0.55);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--label);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 1.75rem 1.25rem 4rem; }
+
+  button {
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    border: none;
+    background: var(--fill);
+    border-radius: 999px;
+    padding: 0.5rem 1rem;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--label);
+    transition: background 0.15s ease, opacity 0.15s ease;
+    font-family: inherit;
+  }
+  button:hover:not(:disabled) { background: var(--fill-strong); }
+  button:disabled { opacity: 0.45; cursor: default; }
+  button:focus-visible, input:focus-visible, select:focus-visible {
+    outline: 2px solid var(--blue);
+    outline-offset: 2px;
+  }
+  .btn-dark { background: var(--blue); color: #fff; }
+  .btn-dark:hover:not(:disabled) { background: var(--blue); opacity: 0.88; }
+  .btn-icon { padding: 0.5rem; }
+
+  input[type="text"], input[type="email"], select {
+    border: none;
+    background: var(--fill);
+    border-radius: 8px;
+    padding: 0.55rem 0.8rem;
+    font-size: 0.85rem;
+    color: var(--label);
+    font-family: inherit;
+    width: 100%;
+  }
+  input::placeholder { color: var(--tertiary); }
+  label.field-label { font-size: 0.78rem; font-weight: 600; color: var(--secondary); text-transform: uppercase; letter-spacing: 0.02em; display: block; margin: 1rem 0 0.4rem; }
+  label.field-label:first-child { margin-top: 0; }
+  .hint { font-size: 0.8rem; color: var(--secondary); margin: 0.2rem 0 0.6rem; line-height: 1.4; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
+
+  h1.top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+  .wordmark { font-size: 1.5rem; font-weight: 600; letter-spacing: -0.02em; margin: 0; }
+  .wordmark .ai { color: var(--green); }
+  .header-actions { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+
+  .tabs {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    border-bottom: 1px solid var(--separator);
+    box-shadow: 0 2px 4px var(--shadow);
+    margin-top: 1.5rem;
+  }
+  .tab-btn {
+    background: none;
+    border-radius: 0;
+    padding: 0.6rem 0.1rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--secondary);
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+  }
+  .tab-btn:hover { background: none; color: var(--label); }
+  .tab-btn.active { color: var(--label); border-bottom-color: var(--label); }
+  .ticker { margin-left: auto; font-size: 0.85rem; color: var(--secondary); white-space: nowrap; }
+
+  .filter-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    margin: 1rem 0 0.5rem;
+  }
+  .filter-row select, .filter-row input { width: auto; border-radius: 8px; padding: 0.45rem 0.8rem; }
+  .filter-note { font-size: 0.85rem; color: var(--secondary); margin: 0.4rem 0 1rem; }
+
+  .card {
+    background: var(--card);
+    border-radius: 14px;
+    padding: 1.1rem 1.25rem;
+    margin-bottom: 0.85rem;
+    box-shadow: 0 1px 3px var(--shadow);
+  }
+  .card.priority { background: var(--blue-tint); }
+  .card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.75rem; }
+  .card-title { margin: 0; font-size: 1.02rem; font-weight: 600; line-height: 1.3; }
+  .card-title .co { font-weight: 400; color: var(--secondary); }
+  .badges { display: flex; align-items: center; gap: 0.4rem; flex-shrink: 0; }
+  .badge {
+    font-size: 0.72rem;
+    font-weight: 500;
+    color: var(--secondary);
+    background: var(--fill);
+    padding: 0.25rem 0.55rem;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+  .badge.status { color: var(--blue); background: var(--blue-tint); }
+  .x-btn {
+    background: none;
+    padding: 0.3rem;
+    color: var(--tertiary);
+    border-radius: 999px;
+  }
+  .x-btn:hover { background: var(--fill); color: var(--label); }
+  .meta { font-size: 0.82rem; color: var(--secondary); margin: 0.3rem 0 0.9rem; }
+  .actions { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+  .links { margin-left: auto; display: flex; align-items: center; gap: 0.9rem; font-size: 0.82rem; }
+  .links a { color: var(--blue); text-decoration: none; }
+  .links a:hover { text-decoration: underline; }
+  .star-btn {
+    background: none;
+    padding: 0.4rem;
+    color: var(--tertiary);
+    border-radius: 999px;
+  }
+  .star-btn:hover { background: var(--fill); }
+  .star-btn.on { color: var(--amber); }
+  select.pipeline {
+    width: auto;
+    padding: 0.45rem 1.8rem 0.45rem 0.9rem;
+    font-size: 0.82rem;
+    appearance: none;
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="%23888" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>');
+    background-repeat: no-repeat;
+    background-position: right 0.6rem center;
+  }
+  .card-msg {
+    margin-top: 0.75rem;
+    font-size: 0.82rem;
+    padding: 0.55rem 0.8rem;
+    border-radius: 8px;
+    background: var(--fill);
+    color: var(--label);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+  }
+  .card-msg.success { color: #1c7a3e; background: color-mix(in srgb, var(--green) 16%, var(--card)); }
+  :root:not([data-theme="light"]) .card-msg.success { color: #7fe0a0; }
+  :root[data-theme="dark"] .card-msg.success { color: #7fe0a0; }
+  .card-msg button { background: none; padding: 0 0.2rem; font-size: 0.95rem; line-height: 1; color: inherit; }
+
+  .empty {
+    text-align: center;
+    color: var(--secondary);
+    font-size: 0.9rem;
+    padding: 3rem 1rem;
+    border: 1px dashed var(--separator);
+    border-radius: 14px;
+  }
+
+  .toast {
+    position: fixed;
+    left: 50%;
+    bottom: 1.5rem;
+    transform: translateX(-50%) translateY(120%);
+    background: var(--label);
+    color: var(--bg);
+    padding: 0.65rem 1.1rem;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    box-shadow: 0 8px 24px var(--shadow);
+    transition: transform 0.25s ease;
+    z-index: 60;
+    max-width: 90%;
+    text-align: center;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+
+  .demo-banner {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.78rem;
+    color: var(--secondary);
+    background: var(--fill);
+    border-radius: 10px;
+    padding: 0.5rem 0.8rem;
+    margin-bottom: 1.25rem;
+  }
+  .spinner {
+    width: 13px;
+    height: 13px;
+    border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.4);
+    border-top-color: #fff;
+    display: inline-block;
+    animation: spin 0.7s linear infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .spinner { animation: none; }
+    .toast, .drawer, .drawer-overlay { transition: none; }
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ---- Drawer (Job Settings) ---- */
+  .drawer-overlay {
+    position: fixed;
+    inset: 0;
+    background: var(--overlay);
+    z-index: 50;
+    display: flex;
+    justify-content: flex-end;
+  }
+  .drawer-overlay[hidden] { display: none; }
+  .drawer {
+    width: 420px;
+    max-width: 100%;
+    background: var(--bg);
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    box-shadow: -8px 0 32px var(--shadow);
+    animation: slidein 0.18s ease-out;
+  }
+  @keyframes slidein { from { transform: translateX(100%); } to { transform: translateX(0); } }
+  .drawer-header { display: flex; align-items: center; justify-content: space-between; padding: 1.1rem 1.25rem; border-bottom: 1px solid var(--separator); }
+  .drawer-header h2 { margin: 0; font-size: 1.05rem; }
+  .drawer-tabs { display: flex; gap: 1.25rem; padding: 0 1.25rem; border-bottom: 1px solid var(--separator); }
+  .drawer-tab-btn { background: none; border-radius: 0; padding: 0.7rem 0.1rem; font-size: 0.85rem; font-weight: 600; color: var(--secondary); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+  .drawer-tab-btn.active { color: var(--label); border-bottom-color: var(--label); }
+  .drawer-body { flex: 1; overflow-y: auto; padding: 1.1rem 1.25rem; }
+  .drawer-pane[hidden] { display: none; }
+  .drawer-footer { border-top: 1px solid var(--separator); padding: 0.9rem 1.25rem; display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; }
+  .clear-all-check { display: flex; align-items: center; gap: 0.5rem; font-size: 0.78rem; color: var(--red); }
+
+  .section-title { font-size: 0.9rem; font-weight: 600; margin: 1.3rem 0 0.5rem; }
+  .section-title:first-child { margin-top: 0; }
+  .chip-row { display: flex; gap: 0.5rem; margin-bottom: 0.5rem; }
+  .chip-row input { flex: 1; }
+  .chip-add-btn { background: var(--blue); color: #fff; padding: 0.5rem 0.7rem; flex-shrink: 0; }
+  .chip-list { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    background: var(--fill);
+    border-radius: 999px;
+    padding: 0.3rem 0.5rem 0.3rem 0.75rem;
+    font-size: 0.8rem;
+  }
+  .chip.ban { background: color-mix(in srgb, var(--red) 12%, var(--card)); }
+  .chip button { background: none; padding: 0.15rem; color: var(--secondary); border-radius: 999px; }
+  .chip-empty { font-size: 0.78rem; color: var(--tertiary); padding: 0.3rem 0; }
+
+  .toggle-row { display: flex; align-items: center; gap: 0.6rem; margin-top: 0.7rem; }
+  .toggle-row input[type="checkbox"] { width: auto; }
+  .toggle-row span { font-size: 0.85rem; font-weight: 500; }
+  .resume-row { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; background: var(--fill); border-radius: 8px; padding: 0.6rem 0.8rem; margin-bottom: 0.6rem; }
+  .resume-row .name { font-size: 0.82rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .resume-row button { background: none; color: var(--red); padding: 0.2rem 0.4rem; font-size: 0.78rem; }
+
+  /* ---- Onboarding ---- */
+  .onboarding-overlay {
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    z-index: 55;
+    overflow-y: auto;
+  }
+  .onboarding-overlay[hidden] { display: none; }
+  .onb-wrap { max-width: 760px; margin: 0 auto; padding: 2.5rem 1.25rem 6rem; }
+  .onb-welcome { text-align: center; margin-bottom: 2rem; }
+  .onb-welcome h2 { font-size: 1.5rem; margin: 0 0 0.5rem; }
+  .onb-welcome p { color: var(--secondary); max-width: 46ch; margin: 0 auto; font-size: 0.92rem; line-height: 1.5; }
+  .onb-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1.5rem; }
+  @media (max-width: 640px) { .onb-columns { grid-template-columns: 1fr; } }
+  .onb-panel { background: var(--card); border-radius: 14px; padding: 1.25rem; box-shadow: 0 1px 3px var(--shadow); margin-bottom: 1rem; }
+  .onb-panel h3 { margin: 0 0 0.6rem; font-size: 0.95rem; }
+  .onb-footer { position: sticky; bottom: 0; background: var(--bg); border-top: 1px solid var(--separator); padding: 1rem 0 0; margin-top: 1.5rem; display: flex; justify-content: flex-end; gap: 0.6rem; }
+</style>
+
+<div class="wrap">
+  <h1 class="top">
+    <p class="wordmark">FitPilot<span class="ai">.ai</span></p>
+    <span class="header-actions">
+      <button class="btn-dark" id="getStartedBtn">Get Started</button>
+      <button id="addJobBtn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Add Job
+      </button>
+      <button id="scanBtn" class="btn-dark">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        Scan for New Jobs
+      </button>
+      <button class="btn-icon" id="settingsBtn" aria-label="Job Settings" title="Job Settings">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </button>
+    </span>
+  </h1>
+
+  <div class="demo-banner">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+    <span>Standalone demo — every job, setting, and action here is fake and lives only in this browser tab. No server, no network calls, nothing saved.</span>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="new">New Jobs</button>
+    <button class="tab-btn" data-tab="applied">Applied Jobs</button>
+    <span class="ticker" id="ticker"></span>
+  </div>
+
+  <div class="filter-row">
+    <select id="remoteFilter">
+      <option value="all">All locations</option>
+      <option value="remote">Remote</option>
+      <option value="local">Local (SF)</option>
+    </select>
+    <input type="text" id="searchInput" placeholder="Search title or company" />
+  </div>
+  <p class="filter-note" id="filterNote"></p>
+
+  <div id="cardList"></div>
+</div>
+
+<!-- Job Settings drawer -->
+<div class="drawer-overlay" id="settingsOverlay" hidden>
+  <div class="drawer">
+    <div class="drawer-header">
+      <h2>Job Settings</h2>
+      <button class="btn-icon" id="settingsCloseBtn" aria-label="Close">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="drawer-tabs">
+      <button class="drawer-tab-btn active" data-dtab="companies">Companies</button>
+      <button class="drawer-tab-btn" data-dtab="title">Job Title</button>
+      <button class="drawer-tab-btn" data-dtab="user">User</button>
+    </div>
+    <div class="drawer-body">
+      <div class="drawer-pane" data-dpane="companies">
+        <div class="section-title">Included Companies</div>
+        <p class="hint">Flagged as priority — float to the top of New Jobs.</p>
+        <div class="chip-row"><input type="text" id="incCompanyInput" placeholder="Add a company" /><button class="chip-add-btn" data-add="incCompanies">+</button></div>
+        <div class="chip-list" id="incCompanyList"></div>
+        <div class="section-title">Excluded Companies</div>
+        <p class="hint">Filtered out completely, even if they'd otherwise match.</p>
+        <div class="chip-row"><input type="text" id="excCompanyInput" placeholder="Ban a company" /><button class="chip-add-btn" data-add="excCompanies">+</button></div>
+        <div class="chip-list" id="excCompanyList"></div>
+      </div>
+      <div class="drawer-pane" data-dpane="title" hidden>
+        <div class="section-title">Included Title Terms</div>
+        <p class="hint">Shows a job even if it fails the default design-role filter.</p>
+        <div class="chip-row"><input type="text" id="incTermInput" placeholder="Add a term" /><button class="chip-add-btn" data-add="incTerms">+</button></div>
+        <div class="chip-list" id="incTermList"></div>
+        <div class="section-title">Excluded Title Terms</div>
+        <p class="hint">Hides a job even if it passes the filter, e.g. "Senior".</p>
+        <div class="chip-row"><input type="text" id="excTermInput" placeholder="Ban a term" /><button class="chip-add-btn" data-add="excTerms">+</button></div>
+        <div class="chip-list" id="excTermList"></div>
+      </div>
+      <div class="drawer-pane" data-dpane="user" hidden>
+        <div class="section-title">Profile</div>
+        <p class="hint">Your name and email — required before applying to any job.</p>
+        <div class="row2"><input type="text" id="firstNameInput" placeholder="First name" /><input type="text" id="lastNameInput" placeholder="Last name" /></div>
+        <label class="field-label">Email</label>
+        <input type="email" id="emailInput" placeholder="Email" />
+        <div class="section-title">Scan Location</div>
+        <p class="hint">Only jobs matching this location get scanned or shown.</p>
+        <input type="text" id="cityInput" placeholder="Location (city or zip)" />
+        <div class="section-title">Resume</div>
+        <div class="resume-row"><span class="name" id="resumeName"></span><button id="resumeRemoveBtn">Remove</button></div>
+        <button id="resumeUploadBtn">Upload</button>
+        <div class="section-title">AI-Generated Documents</div>
+        <p class="hint">By default, AI generates a tailored resume and cover letter for each job. Opt out to handle your own — Generate Resume disappears and Apply just opens the posting.</p>
+        <label class="toggle-row"><input type="checkbox" id="aiOptOutCheck" /><span>Opt out of AI-generated resumes</span></label>
+      </div>
+    </div>
+    <div class="drawer-footer">
+      <label class="clear-all-check"><input type="checkbox" id="clearAllCheck" />Clear all existing job history</label>
+      <button class="btn-dark" id="settingsSaveBtn">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Onboarding -->
+<div class="onboarding-overlay" id="onboardingOverlay" hidden>
+  <div class="onb-wrap">
+    <div class="onb-welcome">
+      <h2>Welcome to FitPilot.ai</h2>
+      <p>Let's set up your search — add companies and titles, upload your resume, and set a location. Change any of this later from the settings gear.</p>
+    </div>
+    <div class="onb-panel">
+      <h3>Add Your Info</h3>
+      <div class="row2"><input type="text" id="onbFirstName" placeholder="First name" /><input type="text" id="onbLastName" placeholder="Last name" /></div>
+      <label class="field-label">Email</label>
+      <input type="email" id="onbEmail" placeholder="Email" />
+    </div>
+    <div class="onb-columns">
+      <div>
+        <div class="onb-panel">
+          <h3>Add Companies</h3>
+          <div class="chip-row"><input type="text" id="onbCompanyInput" placeholder="Add a company" /><button class="chip-add-btn" data-add="onbCompanies">+</button></div>
+          <div class="chip-list" id="onbCompanyList"></div>
+        </div>
+        <div class="onb-panel">
+          <h3>AI-Generated Documents</h3>
+          <p class="hint">By default, AI generates a tailored resume and cover letter for each job. Opt out below to handle your own.</p>
+          <label class="toggle-row"><input type="checkbox" id="onbAiOptOutCheck" /><span>Opt out of AI-generated resumes</span></label>
+        </div>
+      </div>
+      <div>
+        <div class="onb-panel">
+          <h3>Add Job Title</h3>
+          <div class="chip-row"><input type="text" id="onbTermInput" placeholder="Add a term" /><button class="chip-add-btn" data-add="onbTerms">+</button></div>
+          <div class="chip-list" id="onbTermList"></div>
+        </div>
+        <div class="onb-panel">
+          <h3>Add Resume</h3>
+          <div class="resume-row"><span class="name" id="onbResumeName"></span></div>
+          <button id="onbResumeUploadBtn">Upload</button>
+        </div>
+        <div class="onb-panel">
+          <h3>Add Locations</h3>
+          <input type="text" id="onbCityInput" placeholder="Location (city or zip)" />
+        </div>
+      </div>
+    </div>
+    <div class="onb-footer">
+      <button id="onbSkipBtn">Skip for Now</button>
+      <button class="btn-dark" id="onbFinishBtn">Finish Setup</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function () {
+  const COMPANIES = [
+    ["Northwind Robotics", "Tech"], ["Vector Analytics", "Tech"], ["Bluepeak Systems", "Tech"],
+    ["Meridian Capital Partners", "Finance"], ["Northgate Financial Group", "Finance"], ["Sterling Trust Bank", "Finance"],
+    ["Fernbank Health", "Healthcare"], ["Ridgeline Health", "Healthcare"], ["Silverbrook Health", "Healthcare"],
+    ["Harborview Retail Group", "Retail"], ["Cobblestone Mercantile", "Retail"], ["Bright Aisle Stores", "Retail"],
+    ["Ironclad Builders", "Construction"], ["Granite Peak Construction", "Construction"], ["Timberline Contracting", "Construction"],
+    ["Rockford Motors", "Automotive"], ["Basalt Auto Works", "Automotive"], ["Cascade Motor Group", "Automotive"],
+    ["Lucid Studios", "Media & Entertainment"], ["Brightwell Media", "Media & Entertainment"], ["Palisade Pictures", "Media & Entertainment"],
+    ["Northstar Consulting Group", "Consulting"], ["Millbrook Advisory Partners", "Consulting"], ["Highbridge Strategy Group", "Consulting"],
+    ["Windrose Hospitality", "Travel & Hospitality"], ["Solstice Resorts", "Travel & Hospitality"], ["Fairwind Travel Group", "Travel & Hospitality"],
+    ["Amberlight Foods", "Food & Beverage"], ["Greywolf Beverage Co.", "Food & Beverage"], ["Sunhaven Kitchens", "Food & Beverage"],
+    ["Kestrel Telecom", "Telecom"], ["Everline Communications", "Telecom"], ["Thornfield Networks", "Telecom"],
+    ["Basalt Manufacturing Co.", "Manufacturing"], ["Ironvale Industrial", "Manufacturing"], ["Copperfield Fabrication", "Manufacturing"],
+    ["Crestline Properties", "Real Estate"], ["Woodhaven Realty Group", "Real Estate"], ["Pinecrest Real Estate", "Real Estate"],
+    ["Clearwater Energy", "Energy"], ["Northwind Power", "Energy"], ["Emberline Renewables", "Energy"],
+    ["Brightridge Learning", "Education"], ["Aldergate Academy", "Education"], ["Vector Education Group", "Education"],
+  ];
+  const TITLES = ["Product Designer", "UX Designer", "Visual Designer", "Brand Designer", "UI Designer", "Junior Product Designer", "Growth Designer", "Web Designer", "Interaction Designer", "Motion Designer", "Design Systems Designer", "UX Researcher"];
+  const REMOTE_LOCS = ["Remote (US)", "Remote", "Remote (North America)"];
+  const LOCAL_LOCS = ["San Francisco, CA", "Oakland, CA", "San Jose, CA"];
+  const SOURCES = ["Greenhouse", "Lever", "Ashby", "SmartRecruiters", "BambooHR"];
+  const INTROS = [
+    "We're looking for a thoughtful designer to help shape the next chapter of our product.",
+    "Join a small, senior team building tools that people rely on every day.",
+    "We're growing fast and need a designer who can move between strategy and pixels with ease.",
+    "Our design team is tight-knit, opinionated, and genuinely enjoys critique.",
+  ];
+  const EXPERIENCE = ["1+ years of experience", "3+ years of experience", "5-7 years of relevant experience", "10+ years of professional experience", null, null];
+  const EMPLOYMENT = ["This is a full-time position.", "This is a contract role, initially 6 months.", "This is a contract-to-hire position.", null, null];
+
+  let seed = 42;
+  function rand() {
+    seed |= 0; seed = (seed + 0x6d2b79f5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  }
+  function pick(arr) { return arr[Math.floor(rand() * arr.length)]; }
+  function daysAgo(n) { return new Date(Date.now() - n * 86400000); }
+  function fmtDate(d) { return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }); }
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+
+  function genJob(id, foundDaysAgo, priorityCompanies) {
+    const [company] = pick(COMPANIES);
+    const title = pick(TITLES);
+    const isRemote = rand() < 0.6;
+    const location = isRemote ? pick(REMOTE_LOCS) : pick(LOCAL_LOCS);
+    const exp = pick(EXPERIENCE);
+    const emp = pick(EMPLOYMENT);
+    const desc = [pick(INTROS), exp ? "We're looking for " + exp + " in a professional design role." : null, emp].filter(Boolean).join(" ");
+    return {
+      id, company, title, location, isRemote,
+      source: pick(SOURCES),
+      dateFound: daysAgo(foundDaysAgo),
+      description: desc,
+      priority: priorityCompanies.includes(company),
+      status: "found",
+      favorited: false,
+      ready: false,
+      pipelineStage: "applied",
+      appliedDate: null,
+    };
+  }
+
+  // ---- App state ----
+  const settings = {
+    incCompanies: ["Northwind Robotics", "Fernbank Health"],
+    excCompanies: [],
+    incTerms: ["Designer"],
+    excTerms: ["Manager"],
+  };
+  const profile = { firstName: "Jordan", lastName: "Rivera", email: "jordan@example.com" };
+  let resumeFilename = "John Doe - Product Designer Resume.docx";
+  let aiEnabled = true;
+  let onboardingDone = true; // starts "already set up" so New Jobs isn't empty; Get Started re-runs it
+
+  let nextId = 1;
+  let jobs = [];
+  function seedJobs() {
+    jobs = [];
+    for (let i = 0; i < 26; i++) jobs.push(genJob(nextId++, Math.floor(rand() * 3), settings.incCompanies));
+    [0, 3, 7].forEach((i, k) => {
+      jobs[i].status = "applied";
+      jobs[i].appliedDate = daysAgo(k);
+      jobs[i].pipelineStage = ["applied", "recruiter", "interview"][k];
+    });
+  }
+  seedJobs();
+
+  let currentTab = "new";
+  let searchQuery = "";
+  let remoteFilter = "all";
+
+  const cardList = document.getElementById("cardList");
+  const filterNote = document.getElementById("filterNote");
+  const toastEl = document.getElementById("toast");
+  const ticker = document.getElementById("ticker");
+
+  let toastTimer;
+  function toast(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toastEl.classList.remove("show"), 2600);
+  }
+
+  function icon(name) {
+    const icons = {
+      star: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26"/></svg>',
+      starOutline: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26"/></svg>',
+      x: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
+      ext: '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>',
+    };
+    return icons[name] || "";
+  }
+
+  function render() {
+    const list = jobs
+      .filter((j) => (currentTab === "new" ? j.status === "found" : j.status === "applied"))
+      .filter((j) => remoteFilter === "all" || (remoteFilter === "remote" ? j.isRemote : !j.isRemote))
+      .filter((j) => {
+        if (!searchQuery) return true;
+        const q = searchQuery.toLowerCase();
+        return j.title.toLowerCase().includes(q) || j.company.toLowerCase().includes(q);
+      })
+      .sort((a, b) => (b.favorited ? 1 : 0) - (a.favorited ? 1 : 0));
+
+    filterNote.textContent = currentTab === "new"
+      ? `Showing ${list.length} job${list.length === 1 ? "" : "s"}`
+      : `${list.length} application${list.length === 1 ? "" : "s"} in progress`;
+
+    if (list.length === 0) {
+      cardList.innerHTML = `<div class="empty">${currentTab === "new" ? "No jobs match right now — try Scan for New Jobs, or clear your filters." : "Nothing applied to yet — jobs you apply to will show up here."}</div>`;
+      return;
+    }
+
+    cardList.innerHTML = list.map(cardHtml).join("");
+    wireCards();
+  }
+
+  function cardHtml(j) {
+    const applied = j.status === "applied";
+    const badges = applied
+      ? `<span class="badge">${j.source}</span><span class="badge status">applied</span>`
+      : `<span class="badge status">found</span><span class="badge">${j.source}</span><span class="badge">${fmtDate(j.dateFound)}</span>`;
+
+    const generateBtn = !applied && aiEnabled && !j.ready
+      ? `<button class="request-btn" data-id="${j.id}">Generate Resume</button>` : "";
+    const applyLabel = aiEnabled ? (j.ready ? "Apply with AI prefill" : "Apply with AI prefill") : "Apply";
+    const applyBtn = applied
+      ? `<select class="pipeline" data-id="${j.id}">
+          ${["applied", "recruiter", "interview", "offer", "ghosted"].map((s) => `<option value="${s}" ${s === j.pipelineStage ? "selected" : ""}>${s[0].toUpperCase() + s.slice(1)}</option>`).join("")}
+        </select>`
+      : `<button class="btn-dark apply-btn" data-id="${j.id}">${applyLabel}</button>`;
+
+    const meta = applied ? `Applied ${fmtDate(j.appliedDate)} · ${j.location}` : j.location;
+
+    return `
+      <div class="card${j.priority ? " priority" : ""}" data-id="${j.id}">
+        <div class="card-header">
+          <h3 class="card-title">${esc(j.title)} <span class="co">— ${esc(j.company)}</span></h3>
+          <div class="badges">${badges}${applied ? "" : `<button class="x-btn exclude-btn" data-id="${j.id}" aria-label="Delete">${icon("x")}</button>`}</div>
+        </div>
+        <p class="meta">${meta}</p>
+        <div class="actions">
+          ${generateBtn}
+          ${applyBtn}
+          <button class="star-btn${j.favorited ? " on" : ""}" data-id="${j.id}" aria-label="Favorite">${icon(j.favorited ? "star" : "starOutline")}</button>
+          <span class="links">
+            <a href="#" class="view-link" data-id="${j.id}">View posting ${icon("ext")}</a>
+          </span>
+        </div>
+        <div class="card-msg" data-msg="${j.id}" hidden></div>
+      </div>`;
+  }
+
+  function showCardMsg(id, text, tone) {
+    const el = document.querySelector(`[data-msg="${id}"]`);
+    if (!el) return;
+    el.innerHTML = `<span>${esc(text)}</span><button aria-label="Dismiss">&times;</button>`;
+    el.hidden = false;
+    el.classList.toggle("success", tone === "success");
+    el.querySelector("button").addEventListener("click", () => (el.hidden = true));
+    clearTimeout(el._t);
+    el._t = setTimeout(() => (el.hidden = true), tone === "error" ? 6000 : 4000);
+  }
+
+  function wireCards() {
+    document.querySelectorAll(".request-btn").forEach((btn) =>
+      btn.addEventListener("click", () => {
+        const id = Number(btn.dataset.id);
+        const job = jobs.find((j) => j.id === id);
+        job.ready = true;
+        showCardMsg(id, "Your resume is ready — go get that job!", "success");
+        render();
+      })
+    );
+    document.querySelectorAll(".apply-btn").forEach((btn) =>
+      btn.addEventListener("click", () => {
+        const id = Number(btn.dataset.id);
+        const job = jobs.find((j) => j.id === id);
+        if (aiEnabled && !job.ready) {
+          showCardMsg(id, "Generate a resume for this one first, then you're ready to apply.", "error");
+          return;
+        }
+        job.status = "applied";
+        job.appliedDate = new Date();
+        job.pipelineStage = "applied";
+        toast("Opened in a new tab and moved to your Applied Jobs — you're on a roll!");
+        render();
+        updateTicker();
+      })
+    );
+    document.querySelectorAll(".star-btn").forEach((btn) =>
+      btn.addEventListener("click", () => {
+        const id = Number(btn.dataset.id);
+        const job = jobs.find((j) => j.id === id);
+        job.favorited = !job.favorited;
+        render();
+      })
+    );
+    document.querySelectorAll(".exclude-btn").forEach((btn) =>
+      btn.addEventListener("click", () => {
+        const id = Number(btn.dataset.id);
+        jobs = jobs.filter((j) => j.id !== id);
+        toast("Deleted — that one's gone for good.");
+        render();
+      })
+    );
+    document.querySelectorAll(".pipeline").forEach((sel) =>
+      sel.addEventListener("change", () => {
+        const id = Number(sel.dataset.id);
+        const job = jobs.find((j) => j.id === id);
+        job.pipelineStage = sel.value;
+        toast(`Updated — now tracked as "${sel.value}".`);
+      })
+    );
+    document.querySelectorAll(".view-link").forEach((a) =>
+      a.addEventListener("click", (e) => {
+        e.preventDefault();
+        toast("Demo only — there's no real posting behind this card.");
+      })
+    );
+  }
+
+  function updateTicker() {
+    const applied = jobs.filter((j) => j.status === "applied");
+    ticker.textContent = applied.length
+      ? `📬 ${applied.length} application${applied.length === 1 ? "" : "s"} in progress`
+      : "🔥 Start your streak today";
+  }
+
+  document.querySelectorAll(".tab-btn").forEach((btn) =>
+    btn.addEventListener("click", () => {
+      currentTab = btn.dataset.tab;
+      document.querySelectorAll(".tab-btn").forEach((b) => b.classList.toggle("active", b === btn));
+      render();
+    })
+  );
+  document.getElementById("searchInput").addEventListener("input", (e) => { searchQuery = e.target.value; render(); });
+  document.getElementById("remoteFilter").addEventListener("change", (e) => { remoteFilter = e.target.value; render(); });
+
+  document.getElementById("addJobBtn").addEventListener("click", () => {
+    jobs.unshift(genJob(nextId++, 0, settings.incCompanies));
+    currentTab = "new";
+    document.querySelectorAll(".tab-btn").forEach((b) => b.classList.toggle("active", b.dataset.tab === "new"));
+    toast("Added — pinned to the top of New Jobs.");
+    render();
+  });
+
+  const scanBtn = document.getElementById("scanBtn");
+  scanBtn.addEventListener("click", () => {
+    scanBtn.disabled = true;
+    const original = scanBtn.innerHTML;
+    scanBtn.innerHTML = '<span class="spinner"></span> Scanning...';
+    setTimeout(() => {
+      const n = 3 + Math.floor(rand() * 4);
+      for (let i = 0; i < n; i++) jobs.unshift(genJob(nextId++, 0, settings.incCompanies));
+      scanBtn.disabled = false;
+      scanBtn.innerHTML = original;
+      toast(`Found ${n} new job${n === 1 ? "" : "s"} for you!`);
+      render();
+    }, 650);
+  });
+
+  // ---- Chip lists (shared helper for Job Settings + onboarding) ----
+  function renderChips(containerId, items, cls) {
+    const el = document.getElementById(containerId);
+    if (items.length === 0) { el.innerHTML = `<span class="chip-empty">None yet</span>`; return; }
+    el.innerHTML = items.map((val, i) =>
+      `<span class="chip${cls ? " " + cls : ""}">${esc(val)}<button data-list="${containerId}" data-idx="${i}" aria-label="Remove">${icon("x")}</button></span>`
+    ).join("");
+    el.querySelectorAll("button").forEach((btn) =>
+      btn.addEventListener("click", () => {
+        removeFromList(containerId, Number(btn.dataset.idx));
+      })
+    );
+  }
+  const chipTargets = {
+    incCompanyList: () => settings.incCompanies,
+    excCompanyList: () => settings.excCompanies,
+    incTermList: () => settings.incTerms,
+    excTermList: () => settings.excTerms,
+    onbCompanyList: () => settings.incCompanies,
+    onbTermList: () => settings.incTerms,
+  };
+  function removeFromList(containerId, idx) {
+    chipTargets[containerId]().splice(idx, 1);
+    renderAllChips();
+  }
+  function renderAllChips() {
+    renderChips("incCompanyList", settings.incCompanies);
+    renderChips("excCompanyList", settings.excCompanies, "ban");
+    renderChips("incTermList", settings.incTerms);
+    renderChips("excTermList", settings.excTerms, "ban");
+    renderChips("onbCompanyList", settings.incCompanies);
+    renderChips("onbTermList", settings.incTerms);
+  }
+  document.querySelectorAll("[data-add]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const key = btn.dataset.add;
+      const map = {
+        incCompanies: ["incCompanyInput", settings.incCompanies],
+        excCompanies: ["excCompanyInput", settings.excCompanies],
+        incTerms: ["incTermInput", settings.incTerms],
+        excTerms: ["excTermInput", settings.excTerms],
+        onbCompanies: ["onbCompanyInput", settings.incCompanies],
+        onbTerms: ["onbTermInput", settings.incTerms],
+      };
+      const [inputId, list] = map[key];
+      const input = document.getElementById(inputId);
+      const val = input.value.trim();
+      if (!val) return;
+      list.push(val);
+      input.value = "";
+      renderAllChips();
+    });
+  });
+
+  // ---- Job Settings drawer ----
+  const settingsOverlay = document.getElementById("settingsOverlay");
+  document.getElementById("settingsBtn").addEventListener("click", () => {
+    document.getElementById("firstNameInput").value = profile.firstName;
+    document.getElementById("lastNameInput").value = profile.lastName;
+    document.getElementById("emailInput").value = profile.email;
+    document.getElementById("resumeName").textContent = resumeFilename || "No resume uploaded";
+    document.getElementById("aiOptOutCheck").checked = !aiEnabled;
+    document.getElementById("clearAllCheck").checked = false;
+    renderAllChips();
+    settingsOverlay.hidden = false;
+  });
+  document.getElementById("settingsCloseBtn").addEventListener("click", () => (settingsOverlay.hidden = true));
+  settingsOverlay.addEventListener("click", (e) => { if (e.target === settingsOverlay) settingsOverlay.hidden = true; });
+  document.querySelectorAll(".drawer-tab-btn").forEach((btn) =>
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".drawer-tab-btn").forEach((b) => b.classList.toggle("active", b === btn));
+      document.querySelectorAll("[data-dpane]").forEach((p) => (p.hidden = p.dataset.dpane !== btn.dataset.dtab));
+    })
+  );
+  document.getElementById("resumeUploadBtn").addEventListener("click", () => {
+    resumeFilename = "My Resume.pdf";
+    document.getElementById("resumeName").textContent = resumeFilename;
+    toast("Resume uploaded.");
+  });
+  document.getElementById("resumeRemoveBtn").addEventListener("click", () => {
+    resumeFilename = "";
+    document.getElementById("resumeName").textContent = "No resume uploaded";
+  });
+  document.getElementById("aiOptOutCheck").addEventListener("change", (e) => {
+    const wantsEnabled = !e.target.checked;
+    const msg = wantsEnabled
+      ? "Turning AI-generated resumes back on resets every job's ready state. Continue?"
+      : "Opting out of AI-generated resumes resets every job's ready state. Continue?";
+    if (!confirm(msg)) { e.target.checked = !wantsEnabled; return; }
+    aiEnabled = wantsEnabled;
+    jobs.forEach((j) => (j.ready = false));
+    toast(aiEnabled ? "AI-generated resumes are back on." : "AI-generated resumes are off — Apply now opens the posting directly.");
+    render();
+  });
+  document.getElementById("settingsSaveBtn").addEventListener("click", () => {
+    profile.firstName = document.getElementById("firstNameInput").value.trim();
+    profile.lastName = document.getElementById("lastNameInput").value.trim();
+    profile.email = document.getElementById("emailInput").value.trim();
+    const clearAll = document.getElementById("clearAllCheck").checked;
+    if (clearAll && !confirm("This permanently deletes ALL jobs, including Applied history, before rescanning. Continue?")) return;
+    settingsOverlay.hidden = true;
+    if (clearAll) { seedJobs(); toast("All clear! Job history wiped and fresh jobs pulled in."); }
+    else toast("Settings saved! Fresh jobs pulled in to match — take a look.");
+    currentTab = "new";
+    document.querySelectorAll(".tab-btn").forEach((b) => b.classList.toggle("active", b.dataset.tab === "new"));
+    render();
+    updateTicker();
+  });
+
+  // ---- Onboarding ----
+  const onboardingOverlay = document.getElementById("onboardingOverlay");
+  document.getElementById("getStartedBtn").addEventListener("click", () => {
+    document.getElementById("onbFirstName").value = profile.firstName;
+    document.getElementById("onbLastName").value = profile.lastName;
+    document.getElementById("onbEmail").value = profile.email;
+    document.getElementById("onbResumeName").textContent = resumeFilename || "No resume uploaded";
+    document.getElementById("onbAiOptOutCheck").checked = !aiEnabled;
+    renderAllChips();
+    onboardingOverlay.hidden = false;
+    window.scrollTo(0, 0);
+  });
+  document.getElementById("onbSkipBtn").addEventListener("click", () => (onboardingOverlay.hidden = true));
+  document.getElementById("onbResumeUploadBtn").addEventListener("click", () => {
+    resumeFilename = "My Resume.pdf";
+    document.getElementById("onbResumeName").textContent = resumeFilename;
+    toast("Resume uploaded.");
+  });
+  document.getElementById("onbAiOptOutCheck").addEventListener("change", (e) => {
+    aiEnabled = !e.target.checked;
+  });
+  document.getElementById("onbFinishBtn").addEventListener("click", () => {
+    profile.firstName = document.getElementById("onbFirstName").value.trim() || profile.firstName;
+    profile.lastName = document.getElementById("onbLastName").value.trim() || profile.lastName;
+    profile.email = document.getElementById("onbEmail").value.trim() || profile.email;
+    onboardingOverlay.hidden = true;
+    seedJobs();
+    currentTab = "new";
+    document.querySelectorAll(".tab-btn").forEach((b) => b.classList.toggle("active", b.dataset.tab === "new"));
+    toast("You're all set! We've pulled in jobs that match your settings — happy hunting!");
+    render();
+    updateTicker();
+    window.scrollTo(0, 0);
+  });
+
+  updateTicker();
+  render();
+})();
+</script>
